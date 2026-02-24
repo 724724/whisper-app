@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { Box, Typography, CircularProgress } from '@mui/material'
 import { TranscriptSegmentItem } from './TranscriptSegmentItem'
-import { Spinner } from '../ui/Spinner'
 import type { Transcript } from '../../../../shared/types'
 
 interface TranscriptPanelProps {
@@ -22,26 +22,24 @@ export function TranscriptPanel({
 }: TranscriptPanelProps) {
   const activeRef = useRef<HTMLDivElement | null>(null)
 
-  // Auto-scroll to active segment
   useEffect(() => {
     activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [activeSegmentId])
 
   if (!transcript && !isTranscribing) {
     return (
-      <div className="flex-1 flex items-center justify-center text-zinc-600 text-sm">
-        전사를 시작하려면 아래 버튼을 눌러주세요
-      </div>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <Typography variant="body2" color="text.secondary">
+          전사를 시작하려면 아래 버튼을 눌러주세요
+        </Typography>
+      </Box>
     )
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-1 space-y-1 min-h-0">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {transcript?.segments.map((seg) => (
-        <div
-          key={seg.id}
-          ref={seg.id === activeSegmentId ? activeRef : null}
-        >
+        <div key={seg.id} ref={seg.id === activeSegmentId ? activeRef : null}>
           <TranscriptSegmentItem
             segment={seg}
             isActive={seg.id === activeSegmentId}
@@ -51,15 +49,14 @@ export function TranscriptPanel({
         </div>
       ))}
 
-      {/* Loading indicator for streaming segments */}
       {isTranscribing && (
-        <div className="flex items-center gap-3 px-3 py-3 text-zinc-400 text-sm">
-          <Spinner size="sm" />
-          <span>
-            분석 중... {receivedSegments > 0 && `(${receivedSegments}개 처리됨)`}
-          </span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1.5 }}>
+          <CircularProgress size={14} />
+          <Typography variant="body2" color="text.secondary">
+            분석 중...{receivedSegments > 0 && ` (${receivedSegments}개 처리됨)`}
+          </Typography>
+        </Box>
       )}
-    </div>
+    </Box>
   )
 }

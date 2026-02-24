@@ -6,6 +6,7 @@ export function useMediaPlayer() {
   const [currentTimeMs, setCurrentTimeMs] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [duration, setDuration] = useState(0)
+  const [playbackRate, setPlaybackRateState] = useState(1)
 
   const setActiveSegmentId = useTranscriptStore((s) => s.setActiveSegmentId)
   const transcript = useTranscriptStore((s) => s.transcript)
@@ -26,8 +27,11 @@ export function useMediaPlayer() {
     }
   }, [])
 
-  // React synthetic event handlers — attached directly in JSX so they work
-  // immediately when the element mounts (no useEffect/ref timing issue)
+  const setPlaybackRate = useCallback((rate: number) => {
+    setPlaybackRateState(rate)
+    if (mediaRef.current) mediaRef.current.playbackRate = rate
+  }, [])
+
   const handleTimeUpdate = useCallback(
     (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const ms = e.currentTarget.currentTime * 1000
@@ -52,8 +56,10 @@ export function useMediaPlayer() {
     currentTimeMs,
     isPlaying,
     duration,
+    playbackRate,
     seekTo,
     togglePlay,
+    setPlaybackRate,
     handleTimeUpdate,
     handlePlay,
     handlePause,

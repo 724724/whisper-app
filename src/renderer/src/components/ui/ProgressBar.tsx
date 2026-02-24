@@ -1,20 +1,20 @@
+import { Box, LinearProgress, Typography } from '@mui/material'
+
 interface ProgressBarProps {
-  value: number // 0-100
+  value: number
   label?: string
   className?: string
 }
 
-export function ProgressBar({ value, label, className = '' }: ProgressBarProps) {
-  const clamped = Math.min(100, Math.max(0, value))
+export function ProgressBar({ value, label }: ProgressBarProps) {
   return (
-    <div className={`w-full ${className}`}>
-      {label && <p className="text-xs text-zinc-400 mb-1">{label}</p>}
-      <div className="w-full bg-zinc-700 rounded-full h-2">
-        <div
-          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-          style={{ width: `${clamped}%` }}
-        />
-      </div>
-    </div>
+    <Box sx={{ width: '100%' }}>
+      {label && (
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+          {label}
+        </Typography>
+      )}
+      <LinearProgress variant="determinate" value={Math.min(100, Math.max(0, value))} sx={{ borderRadius: 1 }} />
+    </Box>
   )
 }

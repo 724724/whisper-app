@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { Box, Typography, ButtonGroup, Button } from '@mui/material'
 import { MediaPlayer } from '../components/project/MediaPlayer'
 import { TranscriptPanel } from '../components/project/TranscriptPanel'
 import { TranscribeButton } from '../components/project/TranscribeButton'
@@ -15,11 +16,10 @@ export function ProjectPage() {
   const { id } = useParams<{ id: string }>()
   const [mediaUrl, setMediaUrl] = useState('')
 
-  // Read project from the store — reactive to status updates from useTranscribe
   const project = useProjectStore((s) => s.projects.find((p) => p.id === id) ?? null)
   const addProject = useProjectStore((s) => s.addProject)
 
-  const { mediaRef, currentTimeMs, isPlaying, duration, seekTo, togglePlay, handleTimeUpdate, handlePlay, handlePause, handleDurationChange } = useMediaPlayer()
+  const { mediaRef, currentTimeMs, isPlaying, duration, playbackRate, seekTo, togglePlay, setPlaybackRate, handleTimeUpdate, handlePlay, handlePause, handleDurationChange } = useMediaPlayer()
   const { isTranscribing, startTranscribe, transcribeError, cancelTranscribe } = useTranscribe()
   const { isTranslating, error: translateError, translateFull, translateSegment } = useTranslate()
 
@@ -31,9 +31,7 @@ export function ProjectPage() {
 
   useEffect(() => {
     if (!id) return
-
     const load = async () => {
-      // Load project if not already in store (e.g., direct navigation without going through HomePage)
       let proj = useProjectStore.getState().projects.find((p) => p.id === id)
       if (!proj) {
         const fetched = await window.api.getProject({ projectId: id })
@@ -41,17 +39,13 @@ export function ProjectPage() {
         addProject(fetched)
         proj = fetched
       }
-
       const { url } = await window.api.getMediaUrl({ storedFilePath: proj.storedFilePath })
       setMediaUrl(url)
-
-      // Load existing transcript if this project was already transcribed
       if (proj.transcriptId) {
         const t = await window.api.getTranscript({ transcriptId: proj.transcriptId })
         if (t) setTranscript(t)
       }
     }
-
     load()
     return () => setTranscript(null)
   }, [id, addProject, setTranscript])
@@ -61,7 +55,6 @@ export function ProjectPage() {
     startTranscribe(project.id, project.storedFilePath)
   }
 
-  // Compute progress % from last received segment end time vs media duration
   const progressPct =
     duration > 0 && transcribeProgress.lastSegmentEndMs > 0
       ? Math.min(Math.round((transcribeProgress.lastSegmentEndMs / duration) * 100), 99)
@@ -72,30 +65,25 @@ export function ProjectPage() {
 
   const handleExport = async (format: 'txt' | 'srt' | 'csv') => {
     if (!transcript || !project) return
-    await window.api.exportTranscript({
-      segments: transcript.segments,
-      projectName: project.name,
-      format,
-      hasTranslation,
-    })
+    await window.api.exportTranscript({ segments: transcript.segments, projectName: project.name, format, hasTranslation })
   }
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-full text-zinc-600">
-        프로젝트를 불러오는 중...
-      </div>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <Typography color="text.secondary">프로젝트를 불러오는 중...</Typography>
+      </Box>
     )
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left panel: media + controls */}
-      <div className="w-80 shrink-0 border-r border-zinc-800 flex flex-col p-4 gap-4 overflow-y-auto">
-        <div>
-          <h1 className="font-semibold text-white truncate mb-1">{project.name}</h1>
-          <p className="text-xs text-zinc-500">{project.originalFileName}</p>
-        </div>
+    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+      {/* Left panel */}
+      <Box sx={{ width: 320, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', p: 2, gap: 2, overflowY: 'auto' }}>
+        <Box>
+          <Typography variant="subtitle2" fontWeight="bold" noWrap>{project.name}</Typography>
+          <Typography variant="caption" color="text.secondary">{project.originalFileName}</Typography>
+        </Box>
 
         {mediaUrl && (
           <MediaPlayer
@@ -105,8 +93,10 @@ export function ProjectPage() {
             currentTimeMs={currentTimeMs}
             duration={duration}
             isPlaying={isPlaying}
+            playbackRate={playbackRate}
             onTogglePlay={togglePlay}
             onSeek={seekTo}
+            onSpeedChange={setPlaybackRate}
             onTimeUpdate={handleTimeUpdate}
             onPlay={handlePlay}
             onPause={handlePause}
@@ -132,35 +122,35 @@ export function ProjectPage() {
           outputLanguage={outputLanguage}
           onTranslateFull={translateFull}
         />
-      </div>
+      </Box>
 
-      {/* Right panel: transcript */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between shrink-0">
-          <span className="text-sm font-medium text-zinc-300">
+      {/* Right panel */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+        <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <Typography variant="body2" fontWeight="medium">
             전사 결과
             {transcript && ` (${transcript.segments.length}개 세그먼트)`}
             {transcript?.targetLanguage && (
-              <span className="text-xs text-zinc-500 ml-2">번역: {transcript.targetLanguage}</span>
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                번역: {transcript.targetLanguage}
+              </Typography>
             )}
-          </span>
+          </Typography>
           {canExport && (
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-zinc-600 mr-1">내보내기</span>
-              {(['txt', 'srt', 'csv'] as const).map((fmt) => (
-                <button
-                  key={fmt}
-                  onClick={() => handleExport(fmt)}
-                  className="text-xs px-2 py-1 rounded border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white transition-colors uppercase"
-                >
-                  {fmt}
-                </button>
-              ))}
-            </div>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>내보내기</Typography>
+              <ButtonGroup size="small" variant="outlined">
+                {(['txt', 'srt', 'csv'] as const).map((fmt) => (
+                  <Button key={fmt} onClick={() => handleExport(fmt)} sx={{ px: 1, fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                    {fmt}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            </Box>
           )}
-        </div>
+        </Box>
 
-        <div className="flex-1 overflow-y-auto p-3">
+        <Box sx={{ flex: 1, overflowY: 'auto', p: 1 }}>
           <TranscriptPanel
             transcript={transcript}
             activeSegmentId={activeSegmentId}
@@ -169,8 +159,8 @@ export function ProjectPage() {
             onSeek={seekTo}
             onTranslateSegment={translateSegment}
           />
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   )
 }

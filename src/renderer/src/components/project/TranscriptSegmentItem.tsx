@@ -1,3 +1,4 @@
+import { Box, Typography, Button } from '@mui/material'
 import type { TranscriptSegment } from '../../../../shared/types'
 
 interface TranscriptSegmentItemProps {
@@ -23,46 +24,63 @@ export function TranscriptSegmentItem({
   onTranslate,
 }: TranscriptSegmentItemProps) {
   return (
-    <div
-      className={`group px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-        isActive ? 'bg-blue-950 border border-blue-800' : 'hover:bg-zinc-800 border border-transparent'
-      }`}
+    <Box
       onClick={() => onSeek(segment.startMs)}
+      sx={{
+        px: 1.5,
+        py: 1,
+        borderRadius: 1,
+        cursor: 'pointer',
+        border: '1px solid',
+        borderColor: isActive ? 'primary.dark' : 'transparent',
+        bgcolor: isActive ? 'primary.dark' : 'transparent',
+        '&:hover': { bgcolor: isActive ? 'primary.dark' : 'action.hover' },
+        '&:hover .translate-btn': { opacity: 1 },
+        display: 'flex',
+        gap: 1.5,
+        alignItems: 'flex-start',
+      }}
     >
-      <div className="flex items-start gap-3">
-        {/* Timestamp */}
-        <span
-          className={`text-xs font-mono shrink-0 mt-0.5 ${
-            isActive ? 'text-blue-400' : 'text-zinc-500'
-          }`}
+      <Typography
+        variant="caption"
+        sx={{
+          fontFamily: 'monospace',
+          flexShrink: 0,
+          mt: 0.25,
+          color: isActive ? 'primary.light' : 'text.secondary',
+        }}
+      >
+        {formatTimestamp(segment.startMs)}
+      </Typography>
+
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="body2"
+          sx={{ lineHeight: 1.6, color: isActive ? 'text.primary' : 'text.primary' }}
         >
-          {formatTimestamp(segment.startMs)}
-        </span>
-
-        {/* Text content */}
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm leading-relaxed ${isActive ? 'text-white' : 'text-zinc-300'}`}>
-            {segment.text}
-          </p>
-          {segment.translatedText && (
-            <p className="text-sm text-zinc-500 mt-1 leading-relaxed">{segment.translatedText}</p>
-          )}
-        </div>
-
-        {/* Per-segment translate button */}
-        {onTranslate && !segment.translatedText && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onTranslate(segment.id)
-            }}
-            className="opacity-0 group-hover:opacity-100 text-xs text-zinc-500 hover:text-blue-400 transition-all shrink-0"
-            title="이 문장만 번역"
-          >
-            번역
-          </button>
+          {segment.text}
+        </Typography>
+        {segment.translatedText && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.6 }}>
+            {segment.translatedText}
+          </Typography>
         )}
-      </div>
-    </div>
+      </Box>
+
+      {onTranslate && !segment.translatedText && (
+        <Button
+          className="translate-btn"
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation()
+            onTranslate(segment.id)
+          }}
+          title="이 문장만 번역"
+          sx={{ opacity: 0, transition: 'opacity 0.15s', fontSize: '0.7rem', minWidth: 0, flexShrink: 0, px: 0.5, py: 0 }}
+        >
+          번역
+        </Button>
+      )}
+    </Box>
   )
 }

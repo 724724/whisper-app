@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
+import {
+  Box, IconButton, Slider, Paper, ToggleButtonGroup, ToggleButton, Typography,
+} from '@mui/material'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import PauseIcon from '@mui/icons-material/Pause'
+import VolumeUpIcon from '@mui/icons-material/VolumeUp'
+import MusicNoteIcon from '@mui/icons-material/MusicNote'
 import type { MediaType } from '../../../../shared/types'
+
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
 interface MediaPlayerProps {
   mediaUrl: string
@@ -9,8 +18,10 @@ interface MediaPlayerProps {
   currentTimeMs: number
   duration: number
   isPlaying: boolean
+  playbackRate: number
   onTogglePlay: () => void
   onSeek: (ms: number) => void
+  onSpeedChange: (rate: number) => void
   onTimeUpdate: (e: React.SyntheticEvent<HTMLMediaElement>) => void
   onPlay: () => void
   onPause: () => void
@@ -28,50 +39,33 @@ function formatTime(ms: number): string {
 }
 
 export function MediaPlayer({
-  mediaUrl,
-  mediaType,
-  mediaRef,
-  currentTimeMs,
-  duration,
-  isPlaying,
-  onTogglePlay,
-  onSeek,
-  onTimeUpdate,
-  onPlay,
-  onPause,
-  onDurationChange,
+  mediaUrl, mediaType, mediaRef, currentTimeMs, duration, isPlaying, playbackRate,
+  onTogglePlay, onSeek, onSpeedChange, onTimeUpdate, onPlay, onPause, onDurationChange,
 }: MediaPlayerProps) {
   const [volume, setVolume] = useState(1)
-
-  const handleSeekBar = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onSeek(Number(e.target.value))
-  }
-
-  const handleVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number(e.target.value)
-    setVolume(v)
-    if (mediaRef.current) mediaRef.current.volume = v
-  }
 
   useEffect(() => {
     if (mediaRef.current) mediaRef.current.volume = volume
   }, [mediaUrl, mediaRef, volume])
 
+  const seekMax = isFinite(duration) && duration > 0 ? duration : 0
+
   return (
-    <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+    <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
       {mediaType === 'video' ? (
-        <video
+        <Box
+          component="video"
           ref={mediaRef as RefObject<HTMLVideoElement>}
           src={mediaUrl}
-          className="w-full max-h-52 bg-black object-contain"
           onClick={onTogglePlay}
           onTimeUpdate={onTimeUpdate}
           onPlay={onPlay}
           onPause={onPause}
           onDurationChange={onDurationChange}
+          sx={{ width: '100%', maxHeight: 208, bgcolor: 'black', display: 'block', objectFit: 'contain', cursor: 'pointer' }}
         />
       ) : (
-        <div className="flex items-center justify-center h-28 bg-zinc-950 relative">
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 112, bgcolor: 'background.default' }}>
           <audio
             ref={mediaRef as RefObject<HTMLAudioElement>}
             src={mediaUrl}
@@ -80,48 +74,73 @@ export function MediaPlayer({
             onPause={onPause}
             onDurationChange={onDurationChange}
           />
-          <div className="text-5xl select-none">{isPlaying ? '🔊' : '🎵'}</div>
-        </div>
+          <MusicNoteIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
+        </Box>
       )}
 
-      {/* Controls */}
-      <div className="p-4 space-y-3">
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
-          <span className="w-10 text-right shrink-0">{formatTime(currentTimeMs)}</span>
-          <input
-            type="range"
+      <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {/* Seek bar */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 36, textAlign: 'right', fontFamily: 'monospace' }}>
+            {formatTime(currentTimeMs)}
+          </Typography>
+          <Slider
+            size="small"
             min={0}
-            max={isFinite(duration) && duration > 0 ? duration : 0}
+            max={seekMax}
             value={isFinite(currentTimeMs) ? currentTimeMs : 0}
-            onChange={handleSeekBar}
-            disabled={!isFinite(duration) || duration === 0}
-            className="flex-1 h-1.5 accent-blue-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            onChange={(_, v) => onSeek(v as number)}
+            disabled={seekMax === 0}
+            sx={{ flex: 1 }}
           />
-          <span className="w-10 shrink-0">{formatTime(duration)}</span>
-        </div>
+          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 36, fontFamily: 'monospace' }}>
+            {formatTime(duration)}
+          </Typography>
+        </Box>
 
-        <div className="flex items-center justify-between">
-          <button
+        {/* Play + Volume */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <IconButton
             onClick={onTogglePlay}
-            className="bg-blue-600 hover:bg-blue-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg transition-colors"
+            size="small"
+            sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, width: 32, height: 32 }}
           >
-            {isPlaying ? '⏸' : '▶'}
-          </button>
-
-          <div className="flex items-center gap-2">
-            <span className="text-zinc-500 text-sm">🔈</span>
-            <input
-              type="range"
+            {isPlaying ? <PauseIcon sx={{ fontSize: 18 }} /> : <PlayArrowIcon sx={{ fontSize: 18 }} />}
+          </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <VolumeUpIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Slider
+              size="small"
               min={0}
               max={1}
               step={0.05}
               value={volume}
-              onChange={handleVolume}
-              className="w-20 h-1.5 accent-blue-500 cursor-pointer"
+              onChange={(_, v) => {
+                const val = v as number
+                setVolume(val)
+                if (mediaRef.current) mediaRef.current.volume = val
+              }}
+              sx={{ width: 72 }}
             />
-          </div>
-        </div>
-      </div>
-    </div>
+          </Box>
+        </Box>
+
+        {/* Speed selector */}
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <ToggleButtonGroup
+            value={playbackRate}
+            exclusive
+            size="small"
+            onChange={(_, v) => { if (v !== null) onSpeedChange(v) }}
+          >
+            {SPEEDS.map((s) => (
+              <ToggleButton key={s} value={s} sx={{ px: 0.75, py: 0.25, fontSize: '0.65rem', minWidth: 0, lineHeight: 1.4 }}>
+                {s}x
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Box>
+      </Box>
+    </Paper>
   )
 }

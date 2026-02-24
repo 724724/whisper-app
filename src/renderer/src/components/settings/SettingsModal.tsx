@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Modal } from '../ui/Modal'
+import {
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  Box, Button, TextField, Typography, FormControl, InputLabel,
+  Select, MenuItem, ToggleButtonGroup, ToggleButton, RadioGroup,
+  FormControlLabel, Radio, FormLabel,
+} from '@mui/material'
 import { useSettingsStore } from '../../store/settingsStore'
 import type { AppSettings, WhisperModelName } from '../../../../shared/types'
 
@@ -42,117 +47,95 @@ export function SettingsModal() {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={closeSettings} title="설정">
-      <div className="flex flex-col gap-5">
-        {/* DeepL API Key */}
-        <div>
-          <label className="block text-sm font-medium text-zinc-300 mb-1.5">
-            DeepL API 키
-          </label>
-          <input
-            type="password"
-            value={form.deeplApiKey}
-            onChange={(e) => setForm((f) => ({ ...f, deeplApiKey: e.target.value }))}
-            placeholder="xxxx-xxxx-xxxx:fx"
-            className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
-          />
-          <div className="flex gap-3 mt-2">
-            {(['free', 'pro'] as const).map((type) => (
-              <label key={type} className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="apiType"
-                  value={type}
-                  checked={form.deeplApiType === type}
-                  onChange={() => setForm((f) => ({ ...f, deeplApiType: type }))}
-                  className="accent-blue-500"
-                />
-                <span className="text-sm text-zinc-300 capitalize">{type}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+    <Dialog open={isOpen} onClose={closeSettings} maxWidth="sm" fullWidth>
+      <DialogTitle>설정</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
 
-        {/* Whisper Model */}
-        <div>
-          <label className="block text-sm font-medium text-zinc-300 mb-1.5">
-            Whisper 모델
-          </label>
-          <select
-            value={form.whisperModel}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, whisperModel: e.target.value as WhisperModelName }))
-            }
-            className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-          >
-            {MODELS.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.label} ({m.size})
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-zinc-500 mt-1">
-            NVIDIA GPU 사용 시 large-v3 권장. 첫 사용 시 자동 다운로드됩니다.
-          </p>
-        </div>
+          {/* DeepL API Key */}
+          <Box>
+            <TextField
+              label="DeepL API 키"
+              type="password"
+              value={form.deeplApiKey}
+              onChange={(e) => setForm((f) => ({ ...f, deeplApiKey: e.target.value }))}
+              placeholder="xxxx-xxxx-xxxx:fx"
+              size="small"
+              fullWidth
+            />
+            <RadioGroup
+              row
+              name="apiType"
+              value={form.deeplApiType}
+              onChange={(e) => setForm((f) => ({ ...f, deeplApiType: e.target.value as 'free' | 'pro' }))}
+              sx={{ mt: 1 }}
+            >
+              <FormControlLabel value="free" control={<Radio size="small" />} label="Free" />
+              <FormControlLabel value="pro" control={<Radio size="small" />} label="Pro" />
+            </RadioGroup>
+          </Box>
 
-        {/* Translation target language */}
-        <div>
-          <label className="block text-sm font-medium text-zinc-300 mb-1.5">
-            번역 대상 언어
-          </label>
-          <select
-            value={form.outputLanguage}
-            onChange={(e) => setForm((f) => ({ ...f, outputLanguage: e.target.value }))}
-            className="w-full bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-          >
-            {TARGET_LANGS.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Theme */}
-        <div>
-          <label className="block text-sm font-medium text-zinc-300 mb-2">
-            테마
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {([
-              { value: 'dark', label: '다크', icon: '🌙' },
-              { value: 'light', label: '라이트', icon: '☀️' },
-              { value: 'system', label: '시스템', icon: '💻' },
-            ] as const).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setForm((f) => ({ ...f, theme: opt.value }))}
-                className={`flex flex-col items-center gap-1 py-2.5 rounded-lg border text-sm transition-colors ${
-                  form.theme === opt.value
-                    ? 'border-blue-500 bg-blue-950/40 text-blue-300'
-                    : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
-                }`}
+          {/* Whisper Model */}
+          <Box>
+            <FormControl size="small" fullWidth>
+              <InputLabel>Whisper 모델</InputLabel>
+              <Select
+                label="Whisper 모델"
+                value={form.whisperModel}
+                onChange={(e) => setForm((f) => ({ ...f, whisperModel: e.target.value as WhisperModelName }))}
               >
-                <span className="text-base">{opt.icon}</span>
-                <span>{opt.label}</span>
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-zinc-600 mt-1.5">
-            시스템: OS 설정에 따라 자동 전환
-          </p>
-        </div>
+                {MODELS.map((m) => (
+                  <MenuItem key={m.name} value={m.name}>
+                    {m.label} ({m.size})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              NVIDIA GPU 사용 시 large-v3 권장. 첫 사용 시 자동 다운로드됩니다.
+            </Typography>
+          </Box>
 
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition-colors"
-        >
+          {/* Translation target language */}
+          <FormControl size="small" fullWidth>
+            <InputLabel>번역 대상 언어</InputLabel>
+            <Select
+              label="번역 대상 언어"
+              value={form.outputLanguage}
+              onChange={(e) => setForm((f) => ({ ...f, outputLanguage: e.target.value }))}
+            >
+              {TARGET_LANGS.map((l) => (
+                <MenuItem key={l.code} value={l.code}>{l.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Theme */}
+          <Box>
+            <FormLabel component="legend" sx={{ fontSize: '0.875rem', mb: 1 }}>테마</FormLabel>
+            <ToggleButtonGroup
+              value={form.theme}
+              exclusive
+              size="small"
+              fullWidth
+              onChange={(_, v) => { if (v !== null) setForm((f) => ({ ...f, theme: v })) }}
+            >
+              <ToggleButton value="dark">🌙 다크</ToggleButton>
+              <ToggleButton value="light">☀️ 라이트</ToggleButton>
+              <ToggleButton value="system">💻 시스템</ToggleButton>
+            </ToggleButtonGroup>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              시스템: OS 설정에 따라 자동 전환
+            </Typography>
+          </Box>
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={closeSettings} color="inherit">취소</Button>
+        <Button variant="contained" onClick={handleSave} disabled={isSaving}>
           {isSaving ? '저장 중...' : '저장'}
-        </button>
-      </div>
-    </Modal>
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }

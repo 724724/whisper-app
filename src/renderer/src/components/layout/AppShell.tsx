@@ -1,5 +1,8 @@
 import { type ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { AppBar, Box, Chip, IconButton, Toolbar, Typography, Button } from '@mui/material'
+import SettingsIcon from '@mui/icons-material/Settings'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useBackendStore } from '../../store/backendStore'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -13,47 +16,38 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation()
   const openSettings = useSettingsStore((s) => s.openSettings)
   const { cudaAvailable, gpuName } = useBackendStore()
-
   const isProjectPage = location.pathname.startsWith('/project/')
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-white">
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
-        <div className="flex items-center gap-3">
-          {isProjectPage && (
-            <button
-              onClick={() => navigate('/')}
-              className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5 text-sm"
-            >
-              ← 목록
-            </button>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <AppBar
+        position="static"
+        elevation={0}
+        sx={{ color: 'text.primary' }}
+      >
+        <Toolbar variant="dense" sx={{ minHeight: 48, px: 2 }}>
+          {isProjectPage ? (
+            <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} size="small" color="inherit" sx={{ textTransform: 'none' }}>
+              목록
+            </Button>
+          ) : (
+            <Typography variant="subtitle1" fontWeight="bold">Whisper App</Typography>
           )}
-          {!isProjectPage && (
-            <span className="font-semibold text-white text-base">Whisper App</span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
+          <Box sx={{ flex: 1 }} />
           {cudaAvailable && (
-            <span className="text-xs text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded">
-              GPU {gpuName ? `· ${gpuName}` : ''}
-            </span>
+            <Chip label={`GPU${gpuName ? ` · ${gpuName}` : ''}`} color="success" size="small" sx={{ mr: 1, fontSize: '0.7rem' }} />
           )}
-          <button
-            onClick={openSettings}
-            className="text-zinc-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-zinc-800"
-            title="설정"
-          >
-            ⚙
-          </button>
-        </div>
-      </header>
+          <IconButton onClick={openSettings} size="small" color="inherit" title="설정">
+            <SettingsIcon fontSize="small" />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-hidden">{children}</main>
+      <Box component="main" sx={{ flex: 1, overflow: 'hidden' }}>
+        {children}
+      </Box>
 
       <SettingsModal />
-    </div>
+    </Box>
   )
 }

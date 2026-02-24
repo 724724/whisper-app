@@ -1,4 +1,4 @@
-import { Spinner } from '../ui/Spinner'
+import { Box, Button, Typography, Alert, CircularProgress, Divider } from '@mui/material'
 
 interface TranslationPanelProps {
   hasTranscript: boolean
@@ -29,36 +29,29 @@ export function TranslationPanel({
   if (!hasTranscript) return null
 
   return (
-    <div className="border-t border-zinc-800 pt-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-zinc-500 font-medium">번역</span>
-        <span className="text-xs text-zinc-600">{LANG_LABELS[outputLanguage] ?? outputLanguage}</span>
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Divider />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="caption" color="text.secondary" fontWeight="medium">번역</Typography>
+        <Typography variant="caption" color="text.disabled">{LANG_LABELS[outputLanguage] ?? outputLanguage}</Typography>
+      </Box>
 
-      {error && (
-        <p className="text-xs text-red-400 bg-red-950/30 border border-red-900 rounded px-2 py-1.5">
-          {error}
-        </p>
-      )}
+      {error && <Alert severity="error" sx={{ fontSize: '0.75rem', py: 0.5 }}>{error}</Alert>}
 
-      <button
-        onClick={onTranslateFull}
+      <Button
+        variant="outlined"
+        size="small"
+        fullWidth
         disabled={isTranslating}
-        className="w-full flex items-center justify-center gap-2 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white text-sm rounded-lg py-2 transition-colors disabled:opacity-50"
+        onClick={onTranslateFull}
+        startIcon={isTranslating ? <CircularProgress size={12} /> : undefined}
       >
-        {isTranslating ? (
-          <>
-            <Spinner size="sm" />
-            번역 중...
-          </>
-        ) : (
-          <>{hasTranslation ? '전체 재번역' : '전체 번역'}</>
-        )}
-      </button>
+        {isTranslating ? '번역 중...' : (hasTranslation ? '전체 재번역' : '전체 번역')}
+      </Button>
 
-      <p className="text-xs text-zinc-600 text-center">
+      <Typography variant="caption" color="text.disabled" align="center">
         또는 각 문장 위에 마우스를 올려 개별 번역
-      </p>
-    </div>
+      </Typography>
+    </Box>
   )
 }

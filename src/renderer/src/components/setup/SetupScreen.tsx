@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { Box, Typography, CircularProgress, LinearProgress, Paper, Alert } from '@mui/material'
 import { useBackendStore } from '../../store/backendStore'
-import { ProgressBar } from '../ui/ProgressBar'
-import { Spinner } from '../ui/Spinner'
 
 const PHASE_LABELS: Record<string, string> = {
   checking: 'Python 환경 확인 중',
@@ -16,69 +15,55 @@ export function SetupScreen() {
   const isError = status.phase === 'error'
   const logRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll log to bottom as new lines arrive
   useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight
-    }
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
   }, [logs])
 
   return (
-    <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center gap-6">
-      <div className="flex flex-col items-center gap-3 mb-2">
-        <div className="text-4xl font-bold text-white tracking-tight">Whisper App</div>
-        <div className="text-zinc-400 text-sm">AI 기반 음성 텍스트 변환</div>
-      </div>
+    <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, p: 3 }}>
+      <Box sx={{ textAlign: 'center', mb: 1 }}>
+        <Typography variant="h4" fontWeight="bold" gutterBottom>Whisper App</Typography>
+        <Typography variant="body2" color="text.secondary">AI 기반 음성 텍스트 변환</Typography>
+      </Box>
 
-      <div className="w-96 flex flex-col items-center gap-4">
-        {!isError && <Spinner size="lg" />}
+      <Box sx={{ width: 400, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {!isError && <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress size={40} /></Box>}
 
         {isError ? (
-          <div className="text-center w-full">
-            <div className="text-red-400 font-medium mb-2">시작 실패</div>
-            <div className="text-zinc-400 text-xs leading-relaxed whitespace-pre-wrap text-left max-h-48 overflow-y-auto rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 font-mono">
-              {status.message}
-            </div>
-          </div>
+          <Box>
+            <Alert severity="error" sx={{ mb: 1 }}>시작 실패</Alert>
+            <Paper variant="outlined" sx={{ p: 1.5, maxHeight: 200, overflowY: 'auto' }}>
+              <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', display: 'block' }}>
+                {status.message}
+              </Typography>
+            </Paper>
+          </Box>
         ) : (
-          <>
-            <div className="text-center">
-              <div className="text-white font-medium">{PHASE_LABELS[status.phase]}</div>
-              <div className="text-zinc-400 text-sm mt-1">{status.message}</div>
-            </div>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body1" fontWeight="medium">{PHASE_LABELS[status.phase]}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{status.message}</Typography>
             {status.progress !== undefined && (
-              <ProgressBar value={status.progress} className="w-full" />
+              <LinearProgress variant="determinate" value={status.progress} sx={{ mt: 1.5, borderRadius: 1 }} />
             )}
-          </>
+          </Box>
         )}
 
-        {/* Scrollable log of recent status messages */}
         {logs.length > 0 && (
-          <div
-            ref={logRef}
-            className="w-full max-h-36 overflow-y-auto rounded-lg bg-zinc-900 border border-zinc-800 p-2.5"
-          >
+          <Paper ref={logRef} variant="outlined" sx={{ maxHeight: 144, overflowY: 'auto', p: 1.5 }}>
             {logs.map((line, i) => (
-              <div
-                key={i}
-                className={`text-xs font-mono leading-relaxed py-0.5 ${
-                  line.includes('[error]') ? 'text-red-400' : 'text-zinc-500'
-                }`}
-              >
+              <Typography key={i} variant="caption" component="div" sx={{ fontFamily: 'monospace', py: 0.25, color: line.includes('[error]') ? 'error.main' : 'text.secondary' }}>
                 {line}
-              </div>
+              </Typography>
             ))}
-          </div>
+          </Paper>
         )}
 
         {isError && (
-          <div className="text-xs text-zinc-500 text-center mt-2">
-            Python 3.8+ 및 ffmpeg가 설치되어 있는지 확인하세요.
-            <br />
-            앱을 재시작하면 다시 시도합니다.
-          </div>
+          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+            Python 3.8+ 및 ffmpeg가 설치되어 있는지 확인하세요.<br />앱을 재시작하면 다시 시도합니다.
+          </Typography>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }

@@ -1,34 +1,5 @@
-@import "tailwindcss";
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Dark mode activated by .dark class on <html> (default) */
-@custom-variant dark (&:is(.dark *));
-
-/*
-  Light mode: remap Tailwind v4's zinc CSS variables so that
-  dark-first components (bg-zinc-950, text-white, etc.) automatically
-  render with an inverted, light-first palette — no component changes needed.
-
-  Mapping: zinc-950 ↔ zinc-50, zinc-900 ↔ zinc-100, ...
-  white → near-black (so text-white becomes dark text)
-*/
-html.light {
-  color-scheme: light;
-  --color-zinc-50:  oklch(14.1% 0.005 285.823);  /* ← was zinc-950 (darkest) */
-  --color-zinc-100: oklch(21%   0.006 285.885);  /* ← was zinc-900 */
-  --color-zinc-200: oklch(27.4% 0.006 286.033);  /* ← was zinc-800 */
-  --color-zinc-300: oklch(37%   0.013 285.805);  /* ← was zinc-700 */
-  --color-zinc-400: oklch(44.2% 0.011 285.786);  /* ← was zinc-600 */
-  --color-zinc-500: oklch(55.4% 0.013 285.938);  /* midpoint unchanged */
-  --color-zinc-600: oklch(70.5% 0.015 286.067);  /* ← was zinc-400 */
-  --color-zinc-700: oklch(87.1% 0.006 286.286);  /* ← was zinc-300 */
-  --color-zinc-800: oklch(92%   0.004 286.717);  /* ← was zinc-200 */
-  --color-zinc-900: oklch(96.7% 0.003 264.542);  /* ← was zinc-100 */
-  --color-zinc-950: oklch(98.5% 0.002 247.839);  /* ← was zinc-50  (lightest) */
-  --color-white:    oklch(14.1% 0.005 285.823);  /* white → near-black */
-}
-
-/* Scrollbar styling */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
-html.light ::-webkit-scrollbar-thumb { background: #a1a1aa; }

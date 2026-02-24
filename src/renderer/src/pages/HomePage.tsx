@@ -1,8 +1,16 @@
-import { useEffect } from 'react'
-import { DropZone } from '../components/home/DropZone'
-import { useProjects } from '../hooks/useProjects'
-import { Badge } from '../components/ui/Badge'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  Box, Typography, List, ListItem, ListItemButton, ListItemText,
+  ListItemIcon, IconButton, Chip, CircularProgress,
+} from '@mui/material'
+import DeleteIcon from '@mui/icons-material/Delete'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import MovieIcon from '@mui/icons-material/Movie'
+import MusicNoteIcon from '@mui/icons-material/MusicNote'
+import { DropZone } from '../components/home/DropZone'
+import { Badge } from '../components/ui/Badge'
+import { useProjects } from '../hooks/useProjects'
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR', {
@@ -14,83 +22,85 @@ function formatDate(iso: string): string {
 export function HomePage() {
   const navigate = useNavigate()
   const { projects, isLoading, loadProjects, deleteProject } = useProjects()
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadProjects()
-  }, [loadProjects])
+  useEffect(() => { loadProjects() }, [loadProjects])
 
-  const handleDelete = async (id: string, name: string) => {
-    if (confirm(`"${name}" 프로젝트를 삭제하시겠습니까?`)) {
-      await deleteProject(id)
-    }
+  const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation()
+    if (confirm(`"${name}" 프로젝트를 삭제하시겠습니까?`)) await deleteProject(id)
   }
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-5 space-y-6">
+    <Box sx={{ height: '100%', overflowY: 'auto', p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <DropZone />
 
-      {/* Project list */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-medium text-zinc-400">
-            프로젝트 {projects.length > 0 && `(${projects.length})`}
-          </h2>
-        </div>
+      <Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          프로젝트 {projects.length > 0 && `(${projects.length})`}
+        </Typography>
 
         {isLoading ? (
-          <div className="text-zinc-600 text-sm text-center py-8">불러오는 중...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={24} />
+          </Box>
         ) : projects.length === 0 ? (
-          <div className="text-zinc-600 text-sm text-center py-12">
+          <Typography variant="body2" color="text.disabled" sx={{ textAlign: 'center', py: 6 }}>
             파일을 가져오면 여기에 표시됩니다
-          </div>
+          </Typography>
         ) : (
-          <div className="grid grid-cols-1 gap-2">
+          <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {projects.map((project) => (
-              <div
+              <ListItem
                 key={project.id}
-                onDoubleClick={() => navigate(`/project/${project.id}`)}
-                className="group bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-600 rounded-xl p-4 transition-all duration-150 cursor-pointer select-none"
+                disablePadding
+                onMouseEnter={() => setHoveredId(project.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                secondaryAction={
+                  hoveredId === project.id ? (
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <IconButton size="small" onClick={() => navigate(`/project/${project.id}`)} title="열기">
+                        <OpenInNewIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={(e) => handleDelete(e, project.id, project.name)} title="삭제">
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ) : null
+                }
+                sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, '&:hover': { borderColor: 'primary.main' } }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xl shrink-0">
-                      {project.mediaType === 'video' ? '🎬' : '🎵'}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-medium text-white truncate">{project.name}</p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <ListItemButton onDoubleClick={() => navigate(`/project/${project.id}`)} sx={{ py: 1.5 }}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    {project.mediaType === 'video'
+                      ? <MovieIcon fontSize="small" color="action" />
+                      : <MusicNoteIcon fontSize="small" color="action" />
+                    }
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography variant="body2" fontWeight="medium" noWrap sx={{ maxWidth: 260 }}>
+                          {project.name}
+                        </Typography>
                         <Badge status={project.status} />
                         {project.language && (
-                          <span className="text-xs text-zinc-500 uppercase">{project.language}</span>
+                          <Chip label={project.language.toUpperCase()} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />
                         )}
                         {project.modelUsed && (
-                          <span className="text-xs text-zinc-600">{project.modelUsed}</span>
+                          <Typography variant="caption" color="text.disabled">{project.modelUsed}</Typography>
                         )}
-                        <span className="text-xs text-zinc-700">{formatDate(project.createdAt)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => navigate(`/project/${project.id}`)}
-                      className="opacity-0 group-hover:opacity-100 text-xs text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 px-2.5 py-1 rounded-lg transition-all"
-                    >
-                      열기
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(project.id, project.name) }}
-                      className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-1 rounded text-sm"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              </div>
+                      </Box>
+                    }
+                    secondary={formatDate(project.createdAt)}
+                    secondaryTypographyProps={{ variant: 'caption' }}
+                  />
+                </ListItemButton>
+              </ListItem>
             ))}
-          </div>
+          </List>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }
