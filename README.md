@@ -1,4 +1,4 @@
-# Whisper App
+# Whisper App (WIP)
 
 A minimal desktop application that streamlines the transcription and translation of audio and video files. Built with Electron and TypeScript, Whisper App focuses on an efficient workflow for managing media text without the clutter of built-in recording features.
 
@@ -11,7 +11,7 @@ A minimal desktop application that streamlines the transcription and translation
 ## Tech Stack
 
 - **Core**: Electron, TypeScript, Node.js
-- **Frontend**: React, Vite, Tailwind CSS
+- **Frontend**: React, Vite, Material UI
 - **APIs**: OpenAI Whisper API, DeepL API
 
 ## Getting Started
