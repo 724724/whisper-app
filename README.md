@@ -24,7 +24,7 @@ Ensure you have Node.js and npm installed on your system. You will also need API
 
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/724724/whisper-app.git](https://github.com/724724/whisper-app.git)
+   git clone https://github.com/724724/whisper-app.git
    cd whisper-app
    npm install
 2. Development:
