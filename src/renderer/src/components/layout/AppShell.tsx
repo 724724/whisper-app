@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { AppBar, Box, Chip, IconButton, Toolbar, Typography, Button } from '@mui/material'
+import { AppBar, Box, IconButton, Toolbar, Typography, Button } from '@mui/material'
 import SettingsIcon from '@mui/icons-material/Settings'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { useSettingsStore } from '../../store/settingsStore'
@@ -35,7 +35,20 @@ export function AppShell({ children }: AppShellProps) {
           )}
           <Box sx={{ flex: 1 }} />
           {cudaAvailable && (
-            <Chip label={`GPU${gpuName ? ` · ${gpuName}` : ''}`} color="success" size="small" sx={{ mr: 1, fontSize: '0.7rem' }} />
+            <Box sx={{
+              display: 'flex', alignItems: 'center', gap: 0.75,
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              backgroundColor: 'rgba(34, 197, 94, 0.12)',
+              border: '1px solid rgba(34, 197, 94, 0.28)',
+              borderRadius: '20px',
+              px: 1.5, py: 0.35, mr: 1.5,
+            }}>
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#22c55e', flexShrink: 0, boxShadow: '0 0 6px #22c55e' }} />
+              <Typography variant="caption" sx={{ color: '#22c55e', fontWeight: 700, fontSize: '0.65rem', lineHeight: 1, letterSpacing: '0.02em' }}>
+                {gpuName ? `GPU · ${gpuName}` : 'GPU'}
+              </Typography>
+            </Box>
           )}
           <IconButton onClick={openSettings} size="small" color="inherit" title="설정">
             <SettingsIcon fontSize="small" />

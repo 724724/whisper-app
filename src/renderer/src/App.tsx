@@ -52,29 +52,37 @@ export default function App() {
 
   const muiTheme = useMemo(() => {
     const isDark = mode === 'dark'
-    const glassBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.6)'
+    const glassBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.62)'
     const glassShadow = isDark
-      ? '0 4px 32px rgba(0,0,0,0.5)'
-      : '0 4px 24px rgba(100,120,180,0.12)'
+      ? '0 4px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset'
+      : '0 4px 24px rgba(100,120,180,0.1), 0 1px 0 rgba(255,255,255,0.8) inset'
 
     return createTheme({
+      shape: { borderRadius: 14 },
       palette: {
         mode,
         background: {
           default: 'transparent',
-          paper: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.55)',
+          paper: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.58)',
         },
         primary: { main: '#3b82f6' },
         error: { main: '#ef4444' },
         success: { main: '#22c55e' },
-        divider: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(200,210,240,0.5)',
+        divider: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(200,210,240,0.55)',
         text: {
-          primary: isDark ? '#ffffff' : '#09090b',
-          secondary: isDark ? '#a1a1aa' : '#52525b',
+          primary: isDark ? '#f5f5f7' : '#1d1d1f',
+          secondary: isDark ? '#98989d' : '#6e6e73',
         },
       },
       typography: {
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '"Pretendard", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif',
+        h6: { fontWeight: 700, letterSpacing: '-0.02em' },
+        subtitle1: { fontWeight: 700, letterSpacing: '-0.02em' },
+        subtitle2: { fontWeight: 600, letterSpacing: '-0.01em' },
+        body1: { letterSpacing: '-0.01em' },
+        body2: { letterSpacing: '-0.01em' },
+        button: { letterSpacing: '-0.01em' },
+        caption: { letterSpacing: '0em' },
       },
       components: {
         MuiCssBaseline: {
@@ -85,6 +93,7 @@ export default function App() {
                 ? 'linear-gradient(135deg, #080818 0%, #0f1628 45%, #0d1520 100%)'
                 : 'linear-gradient(135deg, #dce8f8 0%, #e8eeff 45%, #f0f4ff 100%)',
               backgroundAttachment: 'fixed',
+              fontFamily: '"Pretendard", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
             },
           },
         },
@@ -92,10 +101,11 @@ export default function App() {
           styleOverrides: {
             root: {
               backgroundImage: 'none',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
               border: `1px solid ${glassBorder}`,
               boxShadow: glassShadow,
+              borderRadius: '20px',
             },
           },
         },
@@ -103,10 +113,10 @@ export default function App() {
           styleOverrides: {
             root: {
               backgroundImage: 'none',
-              backgroundColor: isDark ? 'rgba(8,8,24,0.6)' : 'rgba(255,255,255,0.45)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.6)'}`,
+              backgroundColor: isDark ? 'rgba(8,8,24,0.65)' : 'rgba(255,255,255,0.5)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.65)'}`,
               boxShadow: 'none',
             },
           },
@@ -115,26 +125,92 @@ export default function App() {
           styleOverrides: {
             paper: {
               backgroundImage: 'none',
-              backgroundColor: isDark ? 'rgba(10,10,28,0.85)' : 'rgba(240,246,255,0.82)',
-              backdropFilter: 'blur(28px)',
-              WebkitBackdropFilter: 'blur(28px)',
-              border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.7)'}`,
-              boxShadow: isDark ? '0 8px 48px rgba(0,0,0,0.6)' : '0 8px 32px rgba(100,120,180,0.2)',
+              backgroundColor: isDark ? 'rgba(12,12,30,0.88)' : 'rgba(242,246,255,0.85)',
+              backdropFilter: 'blur(32px)',
+              WebkitBackdropFilter: 'blur(32px)',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.72)'}`,
+              boxShadow: isDark ? '0 20px 60px rgba(0,0,0,0.7)' : '0 20px 60px rgba(80,100,180,0.18)',
+              borderRadius: '24px',
             },
           },
         },
         MuiMenu: {
           styleOverrides: {
             paper: {
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: '16px',
             },
           },
         },
-        MuiButton: { defaultProps: { disableElevation: true } },
+        MuiButton: {
+          defaultProps: { disableElevation: true },
+          styleOverrides: {
+            root: {
+              textTransform: 'none',
+              fontWeight: 600,
+              borderRadius: '12px',
+              letterSpacing: '-0.01em',
+            },
+            contained: {
+              boxShadow: 'none',
+              '&:hover': { boxShadow: 'none' },
+              '&:active': { boxShadow: 'none' },
+            },
+            outlined: {
+              borderWidth: '1.5px',
+              '&:hover': { borderWidth: '1.5px' },
+            },
+            sizeSmall: { borderRadius: '10px', fontSize: '0.8rem' },
+            sizeLarge: { borderRadius: '14px', paddingTop: '12px', paddingBottom: '12px' },
+          },
+        },
         MuiToggleButton: {
           styleOverrides: {
-            root: { textTransform: 'none', border: '1px solid' },
+            root: {
+              textTransform: 'none',
+              fontWeight: 500,
+              border: '1px solid',
+              letterSpacing: '-0.01em',
+            },
+          },
+        },
+        MuiToggleButtonGroup: {
+          styleOverrides: {
+            root: { borderRadius: '12px', overflow: 'hidden' },
+          },
+        },
+        MuiChip: {
+          styleOverrides: {
+            root: { borderRadius: '8px', fontWeight: 600, letterSpacing: '-0.01em' },
+          },
+        },
+        MuiOutlinedInput: {
+          styleOverrides: {
+            root: { borderRadius: '12px' },
+          },
+        },
+        MuiAlert: {
+          styleOverrides: {
+            root: { borderRadius: '12px' },
+          },
+        },
+        MuiLinearProgress: {
+          styleOverrides: {
+            root: { borderRadius: '8px' },
+            bar: { borderRadius: '8px' },
+          },
+        },
+        MuiListItemButton: {
+          styleOverrides: {
+            root: { borderRadius: '12px' },
+          },
+        },
+        MuiDivider: {
+          styleOverrides: {
+            root: {
+              borderColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(200,210,240,0.5)',
+            },
           },
         },
       },
