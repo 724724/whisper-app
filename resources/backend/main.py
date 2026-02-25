@@ -226,6 +226,51 @@ def _download_model_with_progress(model_name: str, job_id: str, emit_fn) -> bool
     return True
 
 
+# ─── Anti-hallucination helpers ───────────────────────────────────────────────
+
+# Base kwargs applied to every model.transcribe() call.
+# Key changes vs. faster-whisper defaults:
+#   condition_on_previous_text=False — prevents the model from feeding its own
+#     previous output back as context, which is the #1 cause of runaway "Yeah. Yeah. Yeah."
+#   temperature tuple — falls back to higher temperatures when low-T output is
+#     unreliable (low log-prob or high compression ratio), breaking repetition loops
+#   compression_ratio_threshold=2.4 — discards segments whose output is suspiciously
+#     compressed (i.e. very repetitive text from the model)
+_TRANSCRIBE_KWARGS_BASE: dict = {
+    'beam_size': 5,
+    'vad_filter': True,
+    'condition_on_previous_text': False,
+    'temperature': (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+    'compression_ratio_threshold': 2.4,
+    'log_prob_threshold': -1.0,
+    'no_speech_threshold': 0.6,
+}
+
+
+def _make_repeat_filter(max_consecutive: int = 4):
+    """
+    Return a stateful callable(text: str) -> bool.
+    Returns True (keep) if the segment is not an obvious hallucination run.
+
+    Logic: if the same normalised text appears more than max_consecutive times
+    in a row, every subsequent occurrence is dropped until a different text appears.
+    This catches "Yeah. Yeah. Yeah. …" without discarding genuine brief repetitions.
+    """
+    last_norm: list[str | None] = [None]
+    count: list[int] = [0]
+
+    def keep(text: str) -> bool:
+        norm = text.strip().lower().rstrip('.,!?…;: ')
+        if norm == last_norm[0]:
+            count[0] += 1
+        else:
+            last_norm[0] = norm
+            count[0] = 1
+        return count[0] <= max_consecutive
+
+    return keep
+
+
 # ─── Core transcription helpers ───────────────────────────────────────────────
 
 def _do_transcription(
@@ -247,16 +292,17 @@ def _do_transcription(
         clip_timestamps = f"{start_sec},{end_sec}" if end_sec is not None else str(start_sec)
 
     kwargs: dict = {
-        'beam_size': 5,
+        **_TRANSCRIBE_KWARGS_BASE,
         'language': language if language else None,
-        'vad_filter': True,
     }
     if clip_timestamps is not None:
         kwargs['clip_timestamps'] = clip_timestamps
 
     segments, info = model.transcribe(file_path, **kwargs)
-    segment_list = []
-    for i, seg in enumerate(segments):
+    repeat_filter = _make_repeat_filter()
+    segment_list: list[dict] = []
+
+    for seg in segments:
         if job_id in _cancelled_jobs:
             _cancelled_jobs.discard(job_id)
             _jobs[job_id].append({
@@ -267,12 +313,16 @@ def _do_transcription(
             })
             return
 
+        text = seg.text.strip()
+        if not text or not repeat_filter(text):
+            continue
+
         event = {
             "type": "segment",
-            "id": str(i),
+            "id": str(len(segment_list)),
             "start": seg.start,
             "end": seg.end,
-            "text": seg.text.strip(),
+            "text": text,
         }
         _jobs[job_id].append(event)
         segment_list.append(event)
@@ -312,6 +362,8 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
     # ── Transcribe each chunk ─────────────────────────────────────────────────
     all_segments: list[dict] = []
     detected_language: str | None = None
+    # Single repeat-filter shared across all chunks so runs spanning a boundary are caught
+    repeat_filter = _make_repeat_filter()
 
     for chunk_idx, (clip_start, clip_end, boundary_start, is_last) in enumerate(chunks):
         boundary_end = boundary_start + CHUNK_DURATION
@@ -327,9 +379,8 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
             pass
 
         kwargs: dict = {
-            'beam_size': 5,
+            **_TRANSCRIBE_KWARGS_BASE,
             'language': detected_language or (language if language else None),
-            'vad_filter': True,
             'clip_timestamps': f"{clip_start},{clip_end}",
         }
 
@@ -349,9 +400,14 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
                 })
                 return
 
+            # ── Boundary filter ───────────────────────────────────────────────
             if seg.start < boundary_start:
                 continue
             if not is_last and seg.start >= boundary_end:
+                continue
+
+            text = seg.text.strip()
+            if not text or not repeat_filter(text):
                 continue
 
             event = {
@@ -359,7 +415,7 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
                 "id": str(len(all_segments)),
                 "start": seg.start,
                 "end": seg.end,
-                "text": seg.text.strip(),
+                "text": text,
             }
             _jobs[job_id].append(event)
             all_segments.append(event)
