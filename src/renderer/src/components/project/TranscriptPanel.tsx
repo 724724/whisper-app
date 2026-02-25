@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { TranscriptSegmentItem } from './TranscriptSegmentItem'
-import type { Transcript } from '../../../../shared/types'
+import type { Transcript, TranscriptSegment } from '../../../../shared/types'
 
 interface TranscriptPanelProps {
   transcript: Transcript | null
@@ -10,6 +10,9 @@ interface TranscriptPanelProps {
   receivedSegments: number
   onSeek: (ms: number) => void
   onTranslateSegment: (segmentId: string) => void
+  onDeleteSegment: (segmentId: string) => void
+  onRetranscribeSegment: (segment: TranscriptSegment) => void
+  retranscribingSegmentId: string | null
 }
 
 export function TranscriptPanel({
@@ -19,6 +22,9 @@ export function TranscriptPanel({
   receivedSegments,
   onSeek,
   onTranslateSegment,
+  onDeleteSegment,
+  onRetranscribeSegment,
+  retranscribingSegmentId,
 }: TranscriptPanelProps) {
   const activeRef = useRef<HTMLDivElement | null>(null)
 
@@ -45,6 +51,9 @@ export function TranscriptPanel({
             isActive={seg.id === activeSegmentId}
             onSeek={onSeek}
             onTranslate={onTranslateSegment}
+            onDelete={onDeleteSegment}
+            onRetranscribe={onRetranscribeSegment}
+            isRetranscribing={retranscribingSegmentId === seg.id}
           />
         </div>
       ))}

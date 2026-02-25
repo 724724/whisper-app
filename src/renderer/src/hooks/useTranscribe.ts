@@ -7,11 +7,12 @@ import { backendFetch } from './useBackend'
 import type { Transcript, TranscriptSegment, WhisperModelName } from '../../../shared/types'
 
 export function useTranscribe() {
-  const { isTranscribing, setTranscribing, setTranscript, setTranscribeProgress, addSegment } =
+  const { isTranscribing, setTranscribing, setTranscript, setTranscribeProgress, addSegment, replaceSegment } =
     useTranscriptStore()
   const { updateProject } = useProjectStore()
   const settings = useSettingsStore((s) => s.settings)
   const [transcribeError, setTranscribeError] = useState<string | null>(null)
+  const [retranscribingSegmentId, setRetranscribingSegmentId] = useState<string | null>(null)
 
   const eventSourceRef = useRef<EventSource | null>(null)
   const currentJobIdRef = useRef<string | null>(null)
@@ -182,5 +183,75 @@ export function useTranscribe() {
     [settings.whisperModel, setTranscribing, setTranscript, setTranscribeProgress, addSegment, updateProject]
   )
 
-  return { isTranscribing, startTranscribe, transcribeError, cancelTranscribe }
+  const retranscribeSegment = useCallback(
+    async (_projectId: string, storedFilePath: string, segment: TranscriptSegment) => {
+      const model = settings.whisperModel
+      setRetranscribingSegmentId(segment.id)
+
+      try {
+        const startRes = await backendFetch('/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            file_path: storedFilePath,
+            model,
+            start_ms: segment.startMs,
+            end_ms: segment.endMs,
+          }),
+        })
+
+        if (!startRes.ok) throw new Error(`Backend error: ${startRes.status}`)
+
+        const { job_id: jobId } = (await startRes.json()) as { job_id: string }
+
+        const newSegments: TranscriptSegment[] = []
+
+        await new Promise<void>((resolve, reject) => {
+          const eventSource = new EventSource(`http://127.0.0.1:18765/transcribe/${jobId}/stream`)
+
+          eventSource.onmessage = (e) => {
+            const data = JSON.parse(e.data) as Record<string, unknown>
+
+            if (data.type === 'segment') {
+              newSegments.push({
+                id: nanoid(),
+                startMs: Math.round((data.start as number) * 1000),
+                endMs: Math.round((data.end as number) * 1000),
+                text: data.text as string,
+                translatedText: null,
+              })
+            } else if (data.type === 'done') {
+              eventSource.close()
+              resolve()
+            } else if (data.type === 'error') {
+              eventSource.close()
+              reject(new Error(data.message as string))
+            }
+          }
+
+          eventSource.onerror = () => {
+            eventSource.close()
+            reject(new Error('SSE 연결 오류'))
+          }
+        })
+
+        // Replace original segment with new ones (or keep original if nothing returned)
+        const replacement = newSegments.length > 0 ? newSegments : [segment]
+        replaceSegment(segment.id, replacement)
+
+        // Save updated transcript
+        const currentTranscript = useTranscriptStore.getState().transcript
+        if (currentTranscript) {
+          await window.api.saveTranscript(currentTranscript)
+        }
+      } catch (err) {
+        console.error('Re-transcription error:', (err as Error).message)
+      } finally {
+        setRetranscribingSegmentId(null)
+      }
+    },
+    [settings.whisperModel, replaceSegment]
+  )
+
+  return { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId }
 }

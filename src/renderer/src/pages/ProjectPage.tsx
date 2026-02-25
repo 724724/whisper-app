@@ -20,12 +20,13 @@ export function ProjectPage() {
   const addProject = useProjectStore((s) => s.addProject)
 
   const { mediaRef, currentTimeMs, isPlaying, duration, playbackRate, seekTo, togglePlay, setPlaybackRate, handleTimeUpdate, handlePlay, handlePause, handleDurationChange } = useMediaPlayer()
-  const { isTranscribing, startTranscribe, transcribeError, cancelTranscribe } = useTranscribe()
+  const { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId } = useTranscribe()
   const { isTranslating, error: translateError, translateFull, translateSegment } = useTranslate()
 
   const transcript = useTranscriptStore((s) => s.transcript)
   const activeSegmentId = useTranscriptStore((s) => s.activeSegmentId)
   const setTranscript = useTranscriptStore((s) => s.setTranscript)
+  const deleteSegment = useTranscriptStore((s) => s.deleteSegment)
   const transcribeProgress = useTranscriptStore((s) => s.transcribeProgress)
   const outputLanguage = useSettingsStore((s) => s.settings.outputLanguage)
 
@@ -53,6 +54,18 @@ export function ProjectPage() {
   const handleStartTranscribe = () => {
     if (!project) return
     startTranscribe(project.id, project.storedFilePath)
+  }
+
+  const handleDeleteSegment = async (segmentId: string) => {
+    if (!transcript) return
+    deleteSegment(segmentId)
+    const updated = { ...transcript, segments: transcript.segments.filter((s) => s.id !== segmentId) }
+    await window.api.saveTranscript(updated)
+  }
+
+  const handleRetranscribeSegment = (segment: import('../../../shared/types').TranscriptSegment) => {
+    if (!project) return
+    retranscribeSegment(project.id, project.storedFilePath, segment)
   }
 
   const progressPct =
@@ -158,6 +171,9 @@ export function ProjectPage() {
             receivedSegments={transcribeProgress.receivedSegments}
             onSeek={seekTo}
             onTranslateSegment={translateSegment}
+            onDeleteSegment={handleDeleteSegment}
+            onRetranscribeSegment={handleRetranscribeSegment}
+            retranscribingSegmentId={retranscribingSegmentId}
           />
         </Box>
       </Box>

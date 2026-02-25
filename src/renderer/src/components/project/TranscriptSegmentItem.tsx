@@ -1,4 +1,9 @@
-import { Box, Typography, Button } from '@mui/material'
+import { useState } from 'react'
+import { Box, Typography, IconButton, Menu, MenuItem, CircularProgress, ListItemIcon } from '@mui/material'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
+import TranslateIcon from '@mui/icons-material/Translate'
+import ReplayIcon from '@mui/icons-material/Replay'
+import DeleteIcon from '@mui/icons-material/Delete'
 import type { TranscriptSegment } from '../../../../shared/types'
 
 interface TranscriptSegmentItemProps {
@@ -6,6 +11,9 @@ interface TranscriptSegmentItemProps {
   isActive: boolean
   onSeek: (ms: number) => void
   onTranslate?: (segmentId: string) => void
+  onDelete?: (segmentId: string) => void
+  onRetranscribe?: (segment: TranscriptSegment) => void
+  isRetranscribing?: boolean
 }
 
 function formatTimestamp(ms: number): string {
@@ -22,7 +30,19 @@ export function TranscriptSegmentItem({
   isActive,
   onSeek,
   onTranslate,
+  onDelete,
+  onRetranscribe,
+  isRetranscribing,
 }: TranscriptSegmentItemProps) {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+
+  const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation()
+    setAnchorEl(e.currentTarget)
+  }
+
+  const handleMenuClose = () => setAnchorEl(null)
+
   return (
     <Box
       onClick={() => onSeek(segment.startMs)}
@@ -35,12 +55,13 @@ export function TranscriptSegmentItem({
         borderColor: isActive ? 'primary.dark' : 'transparent',
         bgcolor: isActive ? 'primary.dark' : 'transparent',
         '&:hover': { bgcolor: isActive ? 'primary.dark' : 'action.hover' },
-        '&:hover .translate-btn': { opacity: 1 },
+        '&:hover .seg-menu-btn': { opacity: 1 },
         display: 'flex',
         gap: 1.5,
         alignItems: 'flex-start',
       }}
     >
+      {/* 타임스탬프 */}
       <Typography
         variant="caption"
         sx={{
@@ -53,10 +74,11 @@ export function TranscriptSegmentItem({
         {formatTimestamp(segment.startMs)}
       </Typography>
 
+      {/* 텍스트 */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography
           variant="body2"
-          sx={{ lineHeight: 1.6, color: isActive ? 'text.primary' : 'text.primary' }}
+          sx={{ lineHeight: 1.6, opacity: isRetranscribing ? 0.4 : 1, transition: 'opacity 0.2s' }}
         >
           {segment.text}
         </Typography>
@@ -67,20 +89,55 @@ export function TranscriptSegmentItem({
         )}
       </Box>
 
-      {onTranslate && !segment.translatedText && (
-        <Button
-          className="translate-btn"
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation()
-            onTranslate(segment.id)
-          }}
-          title="이 문장만 번역"
-          sx={{ opacity: 0, transition: 'opacity 0.15s', fontSize: '0.7rem', minWidth: 0, flexShrink: 0, px: 0.5, py: 0 }}
-        >
-          번역
-        </Button>
-      )}
+      {/* ⋮ 버튼 or 로딩 */}
+      <Box sx={{ flexShrink: 0, mt: -0.5 }}>
+        {isRetranscribing ? (
+          <CircularProgress size={16} sx={{ mt: 0.5 }} />
+        ) : (
+          <IconButton
+            className="seg-menu-btn"
+            size="small"
+            onClick={handleMenuOpen}
+            sx={{ opacity: 0, transition: 'opacity 0.15s', p: 0.25 }}
+          >
+            <MoreVertIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
+
+      {/* 컨텍스트 메뉴 */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        onClick={(e) => e.stopPropagation()}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { minWidth: 130 } } }}
+      >
+        {onTranslate && (
+          <MenuItem dense onClick={() => { onTranslate(segment.id); handleMenuClose() }}>
+            <ListItemIcon><TranslateIcon fontSize="small" /></ListItemIcon>
+            번역
+          </MenuItem>
+        )}
+        {onRetranscribe && (
+          <MenuItem dense onClick={() => { onRetranscribe(segment); handleMenuClose() }}>
+            <ListItemIcon><ReplayIcon fontSize="small" /></ListItemIcon>
+            재전사
+          </MenuItem>
+        )}
+        {onDelete && (
+          <MenuItem
+            dense
+            onClick={() => { onDelete(segment.id); handleMenuClose() }}
+            sx={{ color: 'error.main', '& .MuiListItemIcon-root': { color: 'error.main' } }}
+          >
+            <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
+            삭제
+          </MenuItem>
+        )}
+      </Menu>
     </Box>
   )
 }

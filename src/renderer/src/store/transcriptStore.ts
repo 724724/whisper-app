@@ -18,6 +18,8 @@ interface TranscriptStore {
   setTranscribeProgress: (progress: TranscribeProgress) => void
   addSegment: (segment: TranscriptSegment) => void
   updateSegmentTranslation: (segmentId: string, translatedText: string) => void
+  deleteSegment: (segmentId: string) => void
+  replaceSegment: (oldSegmentId: string, newSegments: TranscriptSegment[]) => void
 }
 
 export const useTranscriptStore = create<TranscriptStore>((set) => ({
@@ -50,5 +52,24 @@ export const useTranscriptStore = create<TranscriptStore>((set) => ({
           ),
         },
       }
+    }),
+  deleteSegment: (segmentId) =>
+    set((s) => {
+      if (!s.transcript) return s
+      return {
+        transcript: {
+          ...s.transcript,
+          segments: s.transcript.segments.filter((seg) => seg.id !== segmentId),
+        },
+      }
+    }),
+  replaceSegment: (oldSegmentId, newSegments) =>
+    set((s) => {
+      if (!s.transcript) return s
+      const segments = s.transcript.segments.flatMap((seg) =>
+        seg.id === oldSegmentId ? newSegments : [seg]
+      )
+      segments.sort((a, b) => a.startMs - b.startMs)
+      return { transcript: { ...s.transcript, segments } }
     }),
 }))

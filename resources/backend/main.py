@@ -81,6 +81,8 @@ class TranscribeRequest(BaseModel):
     file_path: str
     model: str = "base"
     language: str | None = None
+    start_ms: int | None = None
+    end_ms: int | None = None
 
 
 @app.post("/transcribe")
@@ -91,7 +93,7 @@ async def start_transcribe(req: TranscribeRequest):
     _job_done[job_id] = event
 
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_transcription, job_id, req.file_path, req.model, req.language)
+    loop.run_in_executor(None, _run_transcription, job_id, req.file_path, req.model, req.language, req.start_ms, req.end_ms)
 
     return {"job_id": job_id}
 
@@ -103,13 +105,20 @@ async def cancel_transcription(job_id: str):
     return {"cancelled": True}
 
 
-def _do_transcription(job_id: str, model, file_path: str, language: str | None) -> None:
+def _do_transcription(job_id: str, model, file_path: str, language: str | None, start_ms: int | None = None, end_ms: int | None = None) -> None:
     """Run the transcription loop and append events to _jobs[job_id]."""
+    clip_timestamps = None
+    if start_ms is not None:
+        start_sec = start_ms / 1000.0
+        end_sec = end_ms / 1000.0 if end_ms is not None else None
+        clip_timestamps = f"{start_sec},{end_sec}" if end_sec is not None else str(start_sec)
+
     segments, info = model.transcribe(
         file_path,
         beam_size=5,
         language=language if language else None,
         vad_filter=True,
+        clip_timestamps=clip_timestamps,
     )
     segment_list = []
     for i, seg in enumerate(segments):
@@ -148,11 +157,11 @@ def _is_cuda_error(msg: str) -> bool:
     )
 
 
-def _run_transcription(job_id: str, file_path: str, model_name: str, language: str | None):
+def _run_transcription(job_id: str, file_path: str, model_name: str, language: str | None, start_ms: int | None = None, end_ms: int | None = None):
     try:
         model = transcriber.load_model(model_name)
         try:
-            _do_transcription(job_id, model, file_path, language)
+            _do_transcription(job_id, model, file_path, language, start_ms, end_ms)
         except Exception as cuda_e:
             if _is_cuda_error(str(cuda_e)):
                 # CUDA runtime failed during inference — fall back to CPU and retry
@@ -164,7 +173,7 @@ def _run_transcription(job_id: str, file_path: str, model_name: str, language: s
                 model = transcriber.load_model(model_name)
                 # Clear any partial events already added
                 _jobs[job_id] = []
-                _do_transcription(job_id, model, file_path, language)
+                _do_transcription(job_id, model, file_path, language, start_ms, end_ms)
             else:
                 raise
     except Exception as e:
