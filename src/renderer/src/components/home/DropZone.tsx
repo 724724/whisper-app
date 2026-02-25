@@ -17,7 +17,10 @@ export function DropZone() {
     [importFile]
   )
 
-  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true) }
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
   const onDragLeave = () => setIsDragging(false)
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -47,7 +50,7 @@ export function DropZone() {
         transition: 'all 0.2s',
         bgcolor: isDragging ? 'action.selected' : 'background.paper',
         borderColor: isDragging ? 'primary.main' : 'divider',
-        '&:hover': { borderColor: 'primary.light', bgcolor: 'action.hover' },
+        '&:hover': { borderColor: 'primary.light', bgcolor: 'action.hover' }
       }}
     >
       <MusicNoteIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />

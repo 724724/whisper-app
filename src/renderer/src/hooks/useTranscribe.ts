@@ -12,9 +12,29 @@ export interface ModelDownloadInfo {
   sizeMb: number
 }
 
-export function useTranscribe() {
-  const { isTranscribing, setTranscribing, setTranscript, setTranscribeProgress, addSegment, replaceSegment } =
-    useTranscriptStore()
+export interface UseTranscribeResult {
+  isTranscribing: boolean
+  startTranscribe: (projectId: string, storedFilePath: string, modelName?: string) => Promise<void>
+  transcribeError: string | null
+  cancelTranscribe: () => Promise<void>
+  retranscribeSegment: (
+    _projectId: string,
+    storedFilePath: string,
+    segment: TranscriptSegment
+  ) => Promise<void>
+  retranscribingSegmentId: string | null
+  downloadInfo: ModelDownloadInfo | null
+}
+
+export function useTranscribe(): UseTranscribeResult {
+  const {
+    isTranscribing,
+    setTranscribing,
+    setTranscript,
+    setTranscribeProgress,
+    addSegments,
+    replaceSegment
+  } = useTranscriptStore()
   const { updateProject } = useProjectStore()
   const settings = useSettingsStore((s) => s.settings)
   const [transcribeError, setTranscribeError] = useState<string | null>(null)
@@ -55,10 +75,19 @@ export function useTranscribe() {
       isCancelledRef.current = false
       cancelResolveRef.current = null
       setTranscribing(true)
-      setTranscribeProgress({ jobId: null, receivedSegments: 0, lastSegmentEndMs: 0 })
+      setTranscribeProgress({
+        jobId: null,
+        receivedSegments: 0,
+        lastSegmentEndMs: 0,
+        chunkProgress: null
+      })
 
       // Update project status
-      const updatedProject = await window.api.updateProject({ id: projectId, status: 'processing', modelUsed: model as WhisperModelName })
+      const updatedProject = await window.api.updateProject({
+        id: projectId,
+        status: 'processing',
+        modelUsed: model as WhisperModelName
+      })
       updateProject(updatedProject)
 
       // Initialize empty transcript
@@ -68,16 +97,17 @@ export function useTranscribe() {
         projectId,
         segments: [],
         rawText: '',
-        targetLanguage: null,
+        targetLanguage: null
       }
       setTranscript(emptyTranscript)
 
+      let batchInterval: ReturnType<typeof setInterval> | null = null
       try {
         // Start transcription on backend
         const startRes = await backendFetch('/transcribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_path: storedFilePath, model }),
+          body: JSON.stringify({ file_path: storedFilePath, model })
         })
 
         if (!startRes.ok) {
@@ -86,19 +116,39 @@ export function useTranscribe() {
 
         const { job_id: jobId } = (await startRes.json()) as { job_id: string }
         currentJobIdRef.current = jobId
-        setTranscribeProgress({ jobId, receivedSegments: 0, lastSegmentEndMs: 0 })
+        setTranscribeProgress({
+          jobId,
+          receivedSegments: 0,
+          lastSegmentEndMs: 0,
+          chunkProgress: null
+        })
 
         // Stream results via SSE
         const segments: TranscriptSegment[] = []
         let detectedLanguage = ''
+        let currentChunkProgress: { current: number; total: number } | null = null
+
+        // Batch segment additions: flush to store every 200ms instead of per-segment
+        // to avoid React re-rendering hundreds of items on each individual segment arrival
+        const pendingBatch: TranscriptSegment[] = []
+        const flushBatch = (): void => {
+          if (pendingBatch.length === 0) return
+          const toFlush = pendingBatch.splice(0)
+          addSegments(toFlush)
+          setTranscribeProgress({
+            jobId,
+            receivedSegments: segments.length,
+            lastSegmentEndMs: segments[segments.length - 1]?.endMs ?? 0,
+            chunkProgress: currentChunkProgress
+          })
+        }
+        batchInterval = setInterval(flushBatch, 200)
 
         await new Promise<void>((resolve, reject) => {
           // Store resolve so cancelTranscribe can unblock this promise directly
           cancelResolveRef.current = resolve
 
-          const eventSource = new EventSource(
-            `http://127.0.0.1:18765/transcribe/${jobId}/stream`
-          )
+          const eventSource = new EventSource(`http://127.0.0.1:18765/transcribe/${jobId}/stream`)
           eventSourceRef.current = eventSource
 
           eventSource.onmessage = (e) => {
@@ -109,7 +159,7 @@ export function useTranscribe() {
               setDownloadInfo({
                 model: data.model as string,
                 percent: data.percent as number,
-                sizeMb: data.size_mb as number,
+                sizeMb: data.size_mb as number
               })
             } else if (data.type === 'model_loaded') {
               setDownloadInfo(null)
@@ -119,18 +169,34 @@ export function useTranscribe() {
                 startMs: Math.round((data.start as number) * 1000),
                 endMs: Math.round((data.end as number) * 1000),
                 text: data.text as string,
-                translatedText: null,
+                translatedText: null
               }
               segments.push(seg)
-              addSegment(seg)
-              setTranscribeProgress({ jobId, receivedSegments: segments.length, lastSegmentEndMs: seg.endMs })
+              pendingBatch.push(seg)
+            } else if (data.type === 'chunk_progress') {
+              flushBatch()
+              currentChunkProgress = {
+                current: data.chunk as number,
+                total: data.total as number
+              }
+              setTranscribeProgress({
+                jobId,
+                receivedSegments: segments.length,
+                lastSegmentEndMs: segments.length > 0 ? segments[segments.length - 1].endMs : 0,
+                chunkProgress: currentChunkProgress
+              })
             } else if (data.type === 'done') {
               detectedLanguage = (data.language as string) ?? ''
+              clearInterval(batchInterval!)
+              batchInterval = null
+              flushBatch()
               eventSource.close()
               eventSourceRef.current = null
               cancelResolveRef.current = null
               resolve()
             } else if (data.type === 'error') {
+              clearInterval(batchInterval!)
+              batchInterval = null
               eventSource.close()
               eventSourceRef.current = null
               cancelResolveRef.current = null
@@ -140,6 +206,8 @@ export function useTranscribe() {
 
           eventSource.onerror = () => {
             // Only fires on unexpected connection loss (NOT on manual close)
+            clearInterval(batchInterval!)
+            batchInterval = null
             eventSource.close()
             eventSourceRef.current = null
             cancelResolveRef.current = null
@@ -163,7 +231,7 @@ export function useTranscribe() {
           projectId,
           segments,
           rawText: segments.map((s) => s.text).join(' '),
-          targetLanguage: null,
+          targetLanguage: null
         }
         setTranscript(finalTranscript)
         await window.api.saveTranscript(finalTranscript)
@@ -174,7 +242,7 @@ export function useTranscribe() {
           status: 'done',
           transcriptId,
           language: detectedLanguage,
-          modelUsed: model as WhisperModelName,
+          modelUsed: model as WhisperModelName
         })
         updateProject(done)
       } catch (err) {
@@ -189,14 +257,30 @@ export function useTranscribe() {
           updateProject(failed)
         }
       } finally {
+        if (batchInterval) {
+          clearInterval(batchInterval)
+          batchInterval = null
+        }
         setTranscribing(false)
         setDownloadInfo(null)
-        setTranscribeProgress({ jobId: null, receivedSegments: 0, lastSegmentEndMs: 0 })
+        setTranscribeProgress({
+          jobId: null,
+          receivedSegments: 0,
+          lastSegmentEndMs: 0,
+          chunkProgress: null
+        })
         currentJobIdRef.current = null
         cancelResolveRef.current = null
       }
     },
-    [settings.whisperModel, setTranscribing, setTranscript, setTranscribeProgress, addSegment, updateProject]
+    [
+      settings.whisperModel,
+      setTranscribing,
+      setTranscript,
+      setTranscribeProgress,
+      addSegments,
+      updateProject
+    ]
   )
 
   const retranscribeSegment = useCallback(
@@ -212,8 +296,8 @@ export function useTranscribe() {
             file_path: storedFilePath,
             model,
             start_ms: segment.startMs,
-            end_ms: segment.endMs,
-          }),
+            end_ms: segment.endMs
+          })
         })
 
         if (!startRes.ok) throw new Error(`Backend error: ${startRes.status}`)
@@ -234,7 +318,7 @@ export function useTranscribe() {
                 startMs: Math.round((data.start as number) * 1000),
                 endMs: Math.round((data.end as number) * 1000),
                 text: data.text as string,
-                translatedText: null,
+                translatedText: null
               })
             } else if (data.type === 'done') {
               eventSource.close()
@@ -269,5 +353,13 @@ export function useTranscribe() {
     [settings.whisperModel, replaceSegment]
   )
 
-  return { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId, downloadInfo }
+  return {
+    isTranscribing,
+    startTranscribe,
+    transcribeError,
+    cancelTranscribe,
+    retranscribeSegment,
+    retranscribingSegmentId,
+    downloadInfo
+  }
 }

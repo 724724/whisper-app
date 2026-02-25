@@ -36,7 +36,10 @@ export function useBackendInit(): void {
       try {
         const res = await fetch(`${BACKEND_URL}/usage`)
         if (res.ok) {
-          const { type, percent } = (await res.json()) as { type: 'gpu' | 'cpu'; percent: number | null }
+          const { type, percent } = (await res.json()) as {
+            type: 'gpu' | 'cpu'
+            percent: number | null
+          }
           setUsage(type, percent)
         }
       } catch {

@@ -27,17 +27,29 @@ Ensure you have Node.js and npm installed on your system. You will also need API
    git clone https://github.com/724724/whisper-app.git
    cd whisper-app
    npm install
+   ```
 2. Development:
-    ```bash
-    npm run dev
+   ```bash
+   npm run dev
+   ```
 3. Build:
-    ```bash
-    # For windows
-    $ npm run build:win
 
-    # For macOS
-    $ npm run build:mac
+   ```bash
+   # For windows
+   $ npm run build:win
 
-    # For Linux
-    $ npm run build:linux
-    ```
+   # For macOS
+   $ npm run build:mac
+
+   # For Linux
+   $ npm run build:linux
+   ```
+
+## Tested Environment
+
+| | Version
+| - | -
+| OS | Arch Linux x86_64
+| Window Manager | Hyprland 0.53.3 (Wayland)
+| HW | ThinkPad T1g Gen 8
+| GPU | NVIDIA GeForce RTX 5060 Max-Q / Mobile

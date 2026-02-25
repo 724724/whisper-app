@@ -18,9 +18,8 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   addProject: (project) => set((s) => ({ projects: [project, ...s.projects] })),
   updateProject: (updated) =>
     set((s) => ({
-      projects: s.projects.map((p) => (p.id === updated.id ? updated : p)),
+      projects: s.projects.map((p) => (p.id === updated.id ? updated : p))
     })),
-  removeProject: (id) =>
-    set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
-  setLoading: (loading) => set({ isLoading: loading }),
+  removeProject: (id) => set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
+  setLoading: (loading) => set({ isLoading: loading })
 }))

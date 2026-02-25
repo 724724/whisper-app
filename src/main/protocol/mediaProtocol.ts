@@ -15,7 +15,7 @@ const MIME_TYPES: Record<string, string> = {
   mov: 'video/quicktime',
   wmv: 'video/x-ms-wmv',
   webm: 'video/webm',
-  m4v: 'video/mp4',
+  m4v: 'video/mp4'
 }
 
 function getMimeType(filePath: string): string {
@@ -36,7 +36,7 @@ function nodeStreamToWebStream(
     },
     cancel() {
       nodeStream.destroy()
-    },
+    }
   })
 }
 
@@ -63,32 +63,26 @@ export function handleMediaProtocol(): void {
         const end = match[2] ? parseInt(match[2]) : fileSize - 1
         const chunkSize = end - start + 1
 
-        return new Response(
-          nodeStreamToWebStream(createReadStream(filePath, { start, end })),
-          {
-            status: 206,
-            headers: {
-              'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-              'Accept-Ranges': 'bytes',
-              'Content-Length': String(chunkSize),
-              'Content-Type': mimeType,
-            },
+        return new Response(nodeStreamToWebStream(createReadStream(filePath, { start, end })), {
+          status: 206,
+          headers: {
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': String(chunkSize),
+            'Content-Type': mimeType
           }
-        )
+        })
       }
     }
 
     // Full file request — include Content-Length so <audio>/<video> can determine duration
-    return new Response(
-      nodeStreamToWebStream(createReadStream(filePath)),
-      {
-        status: 200,
-        headers: {
-          'Content-Length': String(fileSize),
-          'Accept-Ranges': 'bytes',
-          'Content-Type': mimeType,
-        },
+    return new Response(nodeStreamToWebStream(createReadStream(filePath)), {
+      status: 200,
+      headers: {
+        'Content-Length': String(fileSize),
+        'Accept-Ranges': 'bytes',
+        'Content-Type': mimeType
       }
-    )
+    })
   })
 }

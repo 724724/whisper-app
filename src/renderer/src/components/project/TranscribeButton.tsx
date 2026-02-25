@@ -7,6 +7,7 @@ interface TranscribeButtonProps {
   isTranscribing: boolean
   receivedSegments: number
   progressPct: number
+  chunkProgress: { current: number; total: number } | null
   transcribeError: string | null
   onStart: () => void
   onCancel: () => void
@@ -17,9 +18,10 @@ export function TranscribeButton({
   isTranscribing,
   receivedSegments,
   progressPct,
+  chunkProgress,
   transcribeError,
   onStart,
-  onCancel,
+  onCancel
 }: TranscribeButtonProps) {
   const model = useSettingsStore((s) => s.settings.whisperModel)
 
@@ -30,7 +32,9 @@ export function TranscribeButton({
         <Typography variant="caption" color="text.secondary">
           {isLoadingModel
             ? `모델 로딩 중... (${model} — 첫 실행 시 다운로드 필요)`
-            : `전사 중... ${progressPct}% (${receivedSegments}개 세그먼트)`}
+            : chunkProgress
+              ? `전사 중... ${progressPct}% (청크 ${chunkProgress.current}/${chunkProgress.total}, ${receivedSegments}개 세그먼트)`
+              : `전사 중... ${progressPct}% (${receivedSegments}개 세그먼트)`}
         </Typography>
         <LinearProgress
           variant={isLoadingModel ? 'indeterminate' : 'determinate'}
@@ -43,13 +47,7 @@ export function TranscribeButton({
             인터넷 연결을 확인하고 잠시 기다려주세요.
           </Typography>
         )}
-        <Button
-          variant="outlined"
-          color="error"
-          size="small"
-          fullWidth
-          onClick={onCancel}
-        >
+        <Button variant="outlined" color="error" size="small" fullWidth onClick={onCancel}>
           전사 중단
         </Button>
       </Box>
@@ -68,7 +66,16 @@ export function TranscribeButton({
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {transcribeError && (
         <Alert severity="error" sx={{ fontSize: '0.75rem' }}>
-          <Box component="pre" sx={{ fontFamily: 'monospace', fontSize: '0.7rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all', m: 0 }}>
+          <Box
+            component="pre"
+            sx={{
+              fontFamily: 'monospace',
+              fontSize: '0.7rem',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              m: 0
+            }}
+          >
             {transcribeError}
           </Box>
         </Alert>

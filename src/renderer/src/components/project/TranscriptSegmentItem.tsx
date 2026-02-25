@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { Box, Typography, IconButton, Menu, MenuItem, CircularProgress, ListItemIcon } from '@mui/material'
+import {
+  Box,
+  Typography,
+  IconButton,
+  Menu,
+  MenuItem,
+  CircularProgress,
+  ListItemIcon
+} from '@mui/material'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import TranslateIcon from '@mui/icons-material/Translate'
 import ReplayIcon from '@mui/icons-material/Replay'
@@ -34,7 +42,7 @@ export function TranscriptSegmentItem({
   onTranslate,
   onDelete,
   onRetranscribe,
-  isRetranscribing,
+  isRetranscribing
 }: TranscriptSegmentItemProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
 
@@ -45,11 +53,7 @@ export function TranscriptSegmentItem({
 
   const handleMenuClose = () => setAnchorEl(null)
 
-  const bgColor = isSelected
-    ? 'rgba(59,130,246,0.18)'
-    : isActive
-      ? 'primary.dark'
-      : 'transparent'
+  const bgColor = isSelected ? 'rgba(59,130,246,0.18)' : isActive ? 'primary.dark' : 'transparent'
 
   const borderColor = isSelected
     ? 'rgba(59,130,246,0.45)'
@@ -68,12 +72,14 @@ export function TranscriptSegmentItem({
         border: '1px solid',
         borderColor,
         bgcolor: bgColor,
-        '&:hover': { bgcolor: isSelected ? 'rgba(59,130,246,0.22)' : isActive ? 'primary.dark' : 'action.hover' },
+        '&:hover': {
+          bgcolor: isSelected ? 'rgba(59,130,246,0.22)' : isActive ? 'primary.dark' : 'action.hover'
+        },
         '&:hover .seg-menu-btn': { opacity: 1 },
         display: 'flex',
         gap: 1.5,
         alignItems: 'flex-start',
-        userSelect: 'none',
+        userSelect: 'none'
       }}
     >
       {/* 타임스탬프 */}
@@ -83,7 +89,7 @@ export function TranscriptSegmentItem({
           fontFamily: 'monospace',
           flexShrink: 0,
           mt: 0.25,
-          color: isActive ? 'primary.light' : 'text.secondary',
+          color: isActive ? 'primary.light' : 'text.secondary'
         }}
       >
         {formatTimestamp(segment.startMs)}
@@ -131,24 +137,45 @@ export function TranscriptSegmentItem({
         slotProps={{ paper: { sx: { minWidth: 130 } } }}
       >
         {onTranslate && (
-          <MenuItem dense onClick={() => { onTranslate(segment.id); handleMenuClose() }}>
-            <ListItemIcon><TranslateIcon fontSize="small" /></ListItemIcon>
+          <MenuItem
+            dense
+            onClick={() => {
+              onTranslate(segment.id)
+              handleMenuClose()
+            }}
+          >
+            <ListItemIcon>
+              <TranslateIcon fontSize="small" />
+            </ListItemIcon>
             번역
           </MenuItem>
         )}
         {onRetranscribe && (
-          <MenuItem dense onClick={() => { onRetranscribe(segment); handleMenuClose() }}>
-            <ListItemIcon><ReplayIcon fontSize="small" /></ListItemIcon>
+          <MenuItem
+            dense
+            onClick={() => {
+              onRetranscribe(segment)
+              handleMenuClose()
+            }}
+          >
+            <ListItemIcon>
+              <ReplayIcon fontSize="small" />
+            </ListItemIcon>
             재전사
           </MenuItem>
         )}
         {onDelete && (
           <MenuItem
             dense
-            onClick={() => { onDelete(segment.id); handleMenuClose() }}
+            onClick={() => {
+              onDelete(segment.id)
+              handleMenuClose()
+            }}
             sx={{ color: 'error.main', '& .MuiListItemIcon-root': { color: 'error.main' } }}
           >
-            <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
+            <ListItemIcon>
+              <DeleteIcon fontSize="small" />
+            </ListItemIcon>
             삭제
           </MenuItem>
         )}

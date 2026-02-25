@@ -35,7 +35,10 @@ function findPython(): string | null {
     try {
       const version = execSync(`${cmd} --version`, { encoding: 'utf8', timeout: 5000 }).trim()
       const match = version.match(/Python (\d+)\.(\d+)/)
-      if (match && (parseInt(match[1]) > 3 || (parseInt(match[1]) === 3 && parseInt(match[2]) >= 8))) {
+      if (
+        match &&
+        (parseInt(match[1]) > 3 || (parseInt(match[1]) === 3 && parseInt(match[2]) >= 8))
+      ) {
         return cmd
       }
     } catch {
@@ -113,10 +116,13 @@ function runCommandStreaming(
     let stderrBuf = ''
 
     const processChunk = (chunk: Buffer): void => {
-      chunk.toString().split('\n').forEach((line) => {
-        const trimmed = line.trim()
-        if (trimmed) onLine(trimmed)
-      })
+      chunk
+        .toString()
+        .split('\n')
+        .forEach((line) => {
+          const trimmed = line.trim()
+          if (trimmed) onLine(trimmed)
+        })
     }
 
     proc.stdout?.on('data', processChunk)
@@ -163,31 +169,31 @@ async function installDependencies(python: string): Promise<void> {
     return
   }
 
-  sendStatus({ phase: 'installing', message: '패키지 설치 중 (첫 실행 시 5~10분 소요)...', progress: 30 })
+  sendStatus({
+    phase: 'installing',
+    message: '패키지 설치 중 (첫 실행 시 5~10분 소요)...',
+    progress: 30
+  })
 
   const requirementsPath = join(getBackendDir(), 'requirements.txt')
   let progressValue = 30
 
-  await runCommandStreaming(
-    getPipPath(),
-    ['install', '-r', requirementsPath],
-    (line) => {
-      console.log('[pip]', line)
-      if (line.startsWith('Collecting')) {
-        const pkg = line.replace('Collecting', '').split(/\s/)[1] ?? ''
-        sendStatus({ phase: 'installing', message: `수집 중: ${pkg}`, progress: progressValue })
-      } else if (line.startsWith('Downloading')) {
-        const m = line.match(/Downloading (.+?) \(/)
-        const name = m?.[1] ?? line.slice(0, 60)
-        progressValue = Math.min(progressValue + 3, 80)
-        sendStatus({ phase: 'installing', message: `다운로드: ${name}`, progress: progressValue })
-      } else if (line.startsWith('Installing collected packages')) {
-        sendStatus({ phase: 'installing', message: '패키지 설치 중...', progress: 85 })
-      } else if (line.startsWith('Successfully installed')) {
-        sendStatus({ phase: 'installing', message: '설치 완료!', progress: 90 })
-      }
+  await runCommandStreaming(getPipPath(), ['install', '-r', requirementsPath], (line) => {
+    console.log('[pip]', line)
+    if (line.startsWith('Collecting')) {
+      const pkg = line.replace('Collecting', '').split(/\s/)[1] ?? ''
+      sendStatus({ phase: 'installing', message: `수집 중: ${pkg}`, progress: progressValue })
+    } else if (line.startsWith('Downloading')) {
+      const m = line.match(/Downloading (.+?) \(/)
+      const name = m?.[1] ?? line.slice(0, 60)
+      progressValue = Math.min(progressValue + 3, 80)
+      sendStatus({ phase: 'installing', message: `다운로드: ${name}`, progress: progressValue })
+    } else if (line.startsWith('Installing collected packages')) {
+      sendStatus({ phase: 'installing', message: '패키지 설치 중...', progress: 85 })
+    } else if (line.startsWith('Successfully installed')) {
+      sendStatus({ phase: 'installing', message: '설치 완료!', progress: 90 })
     }
-  )
+  })
 
   // Write current requirements hash as marker so subsequent starts skip pip
   await writeFile(markerPath, currentHash, 'utf8')
@@ -196,7 +202,9 @@ async function installDependencies(python: string): Promise<void> {
 
 async function isPortInUse(): Promise<boolean> {
   try {
-    const res = await fetch(`http://${BACKEND_HOST}:${BACKEND_PORT}/health`, { signal: AbortSignal.timeout(2000) })
+    const res = await fetch(`http://${BACKEND_HOST}:${BACKEND_PORT}/health`, {
+      signal: AbortSignal.timeout(2000)
+    })
     return res.ok
   } catch {
     // Could be in use but not our server, or nothing at all
@@ -243,7 +251,7 @@ export async function startBackend(): Promise<void> {
   if (!python) {
     sendStatus({
       phase: 'error',
-      message: 'Python 3.8 이상이 필요합니다. Python을 설치하고 앱을 재시작하세요.',
+      message: 'Python 3.8 이상이 필요합니다. Python을 설치하고 앱을 재시작하세요.'
     })
     return
   }
@@ -265,7 +273,6 @@ export async function startBackend(): Promise<void> {
   killPortProcess()
   await new Promise((r) => setTimeout(r, 500))
 
-
   // Build LD_LIBRARY_PATH to include pip-installed nvidia CUDA libs
   // (libcublas.so.12, libcudart.so.12, libcudnn.so.* etc.)
   const nvidiaDirs = getNvidiaSitePackageLibDirs()
@@ -276,16 +283,25 @@ export async function startBackend(): Promise<void> {
   }
 
   const backendDir = getBackendDir()
-  serverProcess = spawn(getPythonPath(), [
-    '-m', 'uvicorn', 'main:app',
-    '--host', BACKEND_HOST,
-    '--port', String(BACKEND_PORT),
-    '--log-level', 'info',
-  ], {
-    cwd: backendDir,
-    env: { ...process.env, LD_LIBRARY_PATH: newLd },
-    stdio: 'pipe',
-  })
+  serverProcess = spawn(
+    getPythonPath(),
+    [
+      '-m',
+      'uvicorn',
+      'main:app',
+      '--host',
+      BACKEND_HOST,
+      '--port',
+      String(BACKEND_PORT),
+      '--log-level',
+      'info'
+    ],
+    {
+      cwd: backendDir,
+      env: { ...process.env, LD_LIBRARY_PATH: newLd },
+      stdio: 'pipe'
+    }
+  )
 
   let stderrBuffer = ''
 
@@ -334,7 +350,11 @@ export function stopBackend(): void {
     proc.kill('SIGTERM')
     // Force kill if still alive after 3 seconds
     setTimeout(() => {
-      try { proc.kill('SIGKILL') } catch { /* already dead */ }
+      try {
+        proc.kill('SIGKILL')
+      } catch {
+        /* already dead */
+      }
     }, 3000)
   }
   killPortProcess()

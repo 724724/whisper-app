@@ -5,14 +5,14 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
   pending: '대기',
   processing: '처리 중',
   done: '완료',
-  error: '오류',
+  error: '오류'
 }
 
 const STATUS_COLORS: Record<ProjectStatus, 'default' | 'primary' | 'success' | 'error'> = {
   pending: 'default',
   processing: 'primary',
   done: 'success',
-  error: 'error',
+  error: 'error'
 }
 
 interface BadgeProps {

@@ -7,7 +7,7 @@ import type {
   AppSettings,
   BackendStatus,
   ImportFileResult,
-  TranslateResult,
+  TranslateResult
 } from '../shared/types'
 
 const api = {
@@ -30,8 +30,7 @@ const api = {
     ipcRenderer.invoke('file:export-transcript', params),
 
   // ─── Projects ────────────────────────────────────────────────────────────
-  listProjects: (): Promise<Project[]> =>
-    ipcRenderer.invoke('project:list'),
+  listProjects: (): Promise<Project[]> => ipcRenderer.invoke('project:list'),
 
   getProject: (params: { projectId: string }): Promise<Project | null> =>
     ipcRenderer.invoke('project:get', params),
@@ -50,15 +49,33 @@ const api = {
     ipcRenderer.invoke('transcript:save', transcript),
 
   // ─── Translation ─────────────────────────────────────────────────────────
-  translateFull: (params: { transcriptId: string; targetLang: string }): Promise<TranslateResult> =>
-    ipcRenderer.invoke('translate:full', params),
+  translateFull: (params: {
+    transcriptId: string
+    targetLang: string
+    segments?: TranscriptSegment[]
+  }): Promise<TranslateResult> => ipcRenderer.invoke('translate:full', params),
 
-  translateSegment: (params: { transcriptId: string; segmentId: string; targetLang: string }): Promise<TranslateResult> =>
-    ipcRenderer.invoke('translate:segment', params),
+  translateSegment: (params: {
+    transcriptId: string
+    segmentId: string
+    targetLang: string
+    segments?: TranscriptSegment[]
+  }): Promise<TranslateResult> => ipcRenderer.invoke('translate:segment', params),
+
+  onTranslateProgress: (
+    callback: (data: {
+      success: boolean
+      translatedSegments: { id: string; translatedText: string }[]
+      progress: { current: number; total: number }
+    }) => void
+  ): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: any): void => callback(data)
+    ipcRenderer.on('translate:progress', handler)
+    return () => ipcRenderer.removeListener('translate:progress', handler)
+  },
 
   // ─── Settings ────────────────────────────────────────────────────────────
-  getSettings: (): Promise<AppSettings> =>
-    ipcRenderer.invoke('settings:get'),
+  getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
 
   setSettings: (updates: Partial<AppSettings>): Promise<AppSettings> =>
     ipcRenderer.invoke('settings:set', updates),
@@ -69,7 +86,7 @@ const api = {
       callback(status)
     ipcRenderer.on('backend:status', handler)
     return () => ipcRenderer.removeListener('backend:status', handler)
-  },
+  }
 }
 
 if (process.contextIsolated) {

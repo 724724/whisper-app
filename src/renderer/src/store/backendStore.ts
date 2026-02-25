@@ -30,9 +30,8 @@ export const useBackendStore = create<BackendStore>((set) => ({
       logs:
         status.phase !== 'ready'
           ? [...state.logs.slice(-19), `[${status.phase}] ${status.message}`]
-          : state.logs,
+          : state.logs
     })),
-  setHealthInfo: (info) =>
-    set({ cudaAvailable: info.cudaAvailable, gpuName: info.gpuName }),
-  setUsage: (type, percent) => set({ usageType: type, usagePercent: percent }),
+  setHealthInfo: (info) => set({ cudaAvailable: info.cudaAvailable, gpuName: info.gpuName }),
+  setUsage: (type, percent) => set({ usageType: type, usagePercent: percent })
 }))

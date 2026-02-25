@@ -6,7 +6,7 @@ import type {
   AppSettings,
   BackendStatus,
   ImportFileResult,
-  TranslateResult,
+  TranslateResult
 } from '../shared/types'
 
 interface WhisperAPI {
@@ -32,8 +32,24 @@ interface WhisperAPI {
   saveTranscript(transcript: Transcript): Promise<{ success: boolean }>
 
   // Translation
-  translateFull(params: { transcriptId: string; targetLang: string; segments?: TranscriptSegment[] }): Promise<TranslateResult>
-  translateSegment(params: { transcriptId: string; segmentId: string; targetLang: string; segments?: TranscriptSegment[] }): Promise<TranslateResult>
+  translateFull(params: {
+    transcriptId: string
+    targetLang: string
+    segments?: TranscriptSegment[]
+  }): Promise<TranslateResult>
+  translateSegment(params: {
+    transcriptId: string
+    segmentId: string
+    targetLang: string
+    segments?: TranscriptSegment[]
+  }): Promise<TranslateResult>
+  onTranslateProgress(
+    callback: (data: {
+      success: boolean
+      translatedSegments: { id: string; translatedText: string }[]
+      progress: { current: number; total: number }
+    }) => void
+  ): () => void
 
   // Settings
   getSettings(): Promise<AppSettings>

@@ -28,7 +28,7 @@ export function TranscriptPanel({
   onDeleteSegment,
   onDeleteSegments,
   onRetranscribeSegment,
-  retranscribingSegmentId,
+  retranscribingSegmentId
 }: TranscriptPanelProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null)
@@ -45,8 +45,12 @@ export function TranscriptPanel({
     const el = scrollRef.current
     if (!el) return
 
-    const onWheel = () => { isUserScrolling.current = true }
-    const onTouchStart = () => { isUserScrolling.current = true }
+    const onWheel = () => {
+      isUserScrolling.current = true
+    }
+    const onTouchStart = () => {
+      isUserScrolling.current = true
+    }
     const onScroll = () => {
       if (isUserScrolling.current) {
         setIsFollowing(false)
@@ -153,16 +157,23 @@ export function TranscriptPanel({
     <Box sx={{ position: 'relative', height: '100%' }}>
       {/* Bulk delete toolbar */}
       {selectedIds.size > 0 && (
-        <Box sx={{
-          position: 'sticky', top: 0, zIndex: 10,
-          display: 'flex', alignItems: 'center', gap: 1,
-          px: 1.5, py: 0.75,
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}>
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 1.5,
+            py: 0.75,
+            bgcolor: 'background.paper',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)'
+          }}
+        >
           <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
             {selectedIds.size}개 선택됨
           </Typography>
@@ -188,7 +199,11 @@ export function TranscriptPanel({
       {/* Scrollable list */}
       <Box
         ref={scrollRef}
-        sx={{ height: selectedIds.size > 0 ? 'calc(100% - 40px)' : '100%', overflowY: 'auto', p: 1 }}
+        sx={{
+          height: selectedIds.size > 0 ? 'calc(100% - 40px)' : '100%',
+          overflowY: 'auto',
+          p: 1
+        }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {transcript?.segments.map((seg) => (
@@ -232,7 +247,7 @@ export function TranscriptPanel({
             boxShadow: 3,
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
-            '&:hover': { bgcolor: 'action.hover' },
+            '&:hover': { bgcolor: 'action.hover' }
           }}
         >
           <KeyboardArrowDownIcon fontSize="small" />

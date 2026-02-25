@@ -54,7 +54,7 @@ function formatAsSrt(segments: TranscriptSegment[], hasTranslation: boolean): st
       const lines = [
         String(i + 1),
         `${msToSrtTime(seg.startMs)} --> ${msToSrtTime(seg.endMs)}`,
-        seg.text,
+        seg.text
       ]
       if (hasTranslation && seg.translatedText) lines.push(seg.translatedText)
       return lines.join('\n')
@@ -74,7 +74,7 @@ function formatAsCsv(segments: TranscriptSegment[], hasTranslation: boolean): st
       seg.endMs,
       escapeCsv(msToDisplayTime(seg.startMs)),
       escapeCsv(msToDisplayTime(seg.endMs)),
-      escapeCsv(seg.text),
+      escapeCsv(seg.text)
     ]
     if (hasTranslation) cols.push(escapeCsv(seg.translatedText ?? ''))
     return cols.join(',')
@@ -90,48 +90,68 @@ export function registerFileHandlers(): void {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: [
-        { name: '미디어 파일', extensions: ['mp3', 'wav', 'm4a', 'flac', 'ogg', 'aac', 'mp4', 'mkv', 'avi', 'mov', 'wmv', 'webm', 'opus'] },
-      ],
+        {
+          name: '미디어 파일',
+          extensions: [
+            'mp3',
+            'wav',
+            'm4a',
+            'flac',
+            'ogg',
+            'aac',
+            'mp4',
+            'mkv',
+            'avi',
+            'mov',
+            'wmv',
+            'webm',
+            'opus'
+          ]
+        }
+      ]
     })
     return { canceled: result.canceled, filePaths: result.filePaths }
   })
 
-  ipcMain.handle('file:import', async (_event, { filePath, name }: { filePath: string; name?: string }) => {
-    try {
-      const mediaDir = getMediaDir()
-      await mkdir(mediaDir, { recursive: true })
+  ipcMain.handle(
+    'file:import',
+    async (_event, { filePath, name }: { filePath: string; name?: string }) => {
+      try {
+        const mediaDir = getMediaDir()
+        await mkdir(mediaDir, { recursive: true })
 
-      const id = nanoid()
-      const originalFileName = basename(filePath)
-      const ext = extname(originalFileName)
-      const storedFileName = `${id}${ext}`
-      const storedFilePath = join(mediaDir, storedFileName)
+        const id = nanoid()
+        const originalFileName = basename(filePath)
+        const ext = extname(originalFileName)
+        const storedFileName = `${id}${ext}`
+        const storedFilePath = join(mediaDir, storedFileName)
 
-      await copyFile(filePath, storedFilePath)
+        await copyFile(filePath, storedFilePath)
 
-      const project: Project = {
-        id,
-        name: name || originalFileName.replace(ext, ''),
-        originalFileName,
-        mediaType: getMediaType(filePath),
-        storedFilePath,
-        status: 'pending',
-        modelUsed: null,
-        language: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        transcriptId: null,
-        durationSeconds: null,
+        const project: Project = {
+          id,
+          name: name || originalFileName.replace(ext, ''),
+          originalFileName,
+          mediaType: getMediaType(filePath),
+          storedFilePath,
+          status: 'pending',
+          modelUsed: null,
+          language: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          transcriptId: null,
+          durationSeconds: null
+        }
+
+        const projects = store.get('projects')
+        store.set('projects', [project, ...projects])
+
+        return { success: true, project }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
       }
-
-      const projects = store.get('projects')
-      store.set('projects', [project, ...projects])
-
-      return { success: true, project }
-    } catch (err) {
-      return { success: false, error: (err as Error).message }
     }
-  })
+  )
 
   ipcMain.handle('file:get-media-url', (_event, { storedFilePath }: { storedFilePath: string }) => {
     // Encode each path segment individually to preserve '/' separators
@@ -147,7 +167,7 @@ export function registerFileHandlers(): void {
         segments,
         projectName,
         format,
-        hasTranslation,
+        hasTranslation
       }: {
         segments: TranscriptSegment[]
         projectName: string
@@ -158,12 +178,12 @@ export function registerFileHandlers(): void {
       const filterMap = {
         txt: { name: '텍스트 파일', extensions: ['txt'] },
         srt: { name: 'SRT 자막 파일', extensions: ['srt'] },
-        csv: { name: 'CSV 파일', extensions: ['csv'] },
+        csv: { name: 'CSV 파일', extensions: ['csv'] }
       }
 
       const result = await dialog.showSaveDialog({
         defaultPath: `${projectName}.${format}`,
-        filters: [filterMap[format]],
+        filters: [filterMap[format]]
       })
 
       if (result.canceled || !result.filePath) return { success: false }

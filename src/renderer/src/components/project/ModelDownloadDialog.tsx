@@ -15,7 +15,9 @@ export function ModelDownloadDialog({ info }: ModelDownloadDialogProps) {
       maxWidth="xs"
       fullWidth
       disableEscapeKeyDown
-      slotProps={{ backdrop: { sx: { backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } } }}
+      slotProps={{
+        backdrop: { sx: { backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } }
+      }}
     >
       <DialogContent sx={{ p: 3 }}>
         {/* Header */}
@@ -32,16 +34,21 @@ export function ModelDownloadDialog({ info }: ModelDownloadDialogProps) {
         </Box>
 
         {/* Model name + size */}
-        <Box sx={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-          mb: 1,
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            mb: 1
+          }}
+        >
           <Typography variant="body2" fontWeight={600}>
             {info?.model ?? ''}
           </Typography>
           {info && info.sizeMb > 0 && (
             <Typography variant="caption" color="text.secondary">
-              약 {info.sizeMb >= 1000 ? `${(info.sizeMb / 1000).toFixed(1)} GB` : `${info.sizeMb} MB`}
+              약{' '}
+              {info.sizeMb >= 1000 ? `${(info.sizeMb / 1000).toFixed(1)} GB` : `${info.sizeMb} MB`}
             </Typography>
           )}
         </Box>

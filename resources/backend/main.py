@@ -45,7 +45,7 @@ AVAILABLE_MODELS = [
     {"name": "large-v3", "size_mb": 2900},
 ]
 
-_MODEL_SIZE_MB: dict[str, int] = {m["name"]: m["size_mb"] for m in AVAILABLE_MODELS}
+_MODEL_SIZE_MB: dict[str, int] = {str(m["name"]): int(str(m["size_mb"])) for m in AVAILABLE_MODELS}
 
 # Chunked transcription constants
 CHUNK_DURATION = 900.0   # 15 minutes per chunk
@@ -378,6 +378,13 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
         except (BrokenPipeError, OSError):
             pass
 
+        # === Add Chunk Progress Event to keep SSE connection alive and notify UI ===
+        _jobs[job_id].append({
+            "type": "chunk_progress",
+            "chunk": chunk_idx + 1,
+            "total": len(chunks)
+        })
+
         kwargs: dict = {
             **_TRANSCRIBE_KWARGS_BASE,
             'language': detected_language or (language if language else None),
@@ -503,17 +510,25 @@ async def stream_transcription(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        sent_index = 0
+        sent_index: int = 0
+        last_yield_time = time.time()
         while True:
             events = _jobs.get(job_id, [])
             while sent_index < len(events):
                 ev = events[sent_index]
                 yield f"data: {json.dumps(ev)}\n\n"
                 sent_index += 1
+                last_yield_time = time.time()
                 if ev["type"] in ("done", "error"):
                     _jobs.pop(job_id, None)
                     _job_done.pop(job_id, None)
                     return
+            
+            # Keep connections alive during long GPU inferences with no segments
+            if time.time() - last_yield_time > 15:
+                yield ": keepalive\n\n"
+                last_yield_time = time.time()
+
             await asyncio.sleep(0.1)
 
     return StreamingResponse(

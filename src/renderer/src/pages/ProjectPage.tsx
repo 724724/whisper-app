@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Typography, ButtonGroup, Button } from '@mui/material'
 import { MediaPlayer } from '../components/project/MediaPlayer'
@@ -13,15 +14,37 @@ import { useTranscriptStore } from '../store/transcriptStore'
 import { useProjectStore } from '../store/projectStore'
 import { useSettingsStore } from '../store/settingsStore'
 
-export function ProjectPage() {
+export function ProjectPage(): ReactNode {
   const { id } = useParams<{ id: string }>()
   const [mediaUrl, setMediaUrl] = useState('')
 
   const project = useProjectStore((s) => s.projects.find((p) => p.id === id) ?? null)
   const addProject = useProjectStore((s) => s.addProject)
 
-  const { mediaRef, currentTimeMs, isPlaying, duration, playbackRate, seekTo, seekToOnly, togglePlay, setPlaybackRate, handleTimeUpdate, handlePlay, handlePause, handleDurationChange } = useMediaPlayer()
-  const { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId, downloadInfo } = useTranscribe()
+  const {
+    mediaRef,
+    currentTimeMs,
+    isPlaying,
+    duration,
+    playbackRate,
+    seekTo,
+    seekToOnly,
+    togglePlay,
+    setPlaybackRate,
+    handleTimeUpdate,
+    handlePlay,
+    handlePause,
+    handleDurationChange
+  } = useMediaPlayer()
+  const {
+    isTranscribing,
+    startTranscribe,
+    transcribeError,
+    cancelTranscribe,
+    retranscribeSegment,
+    retranscribingSegmentId,
+    downloadInfo
+  } = useTranscribe()
   const { isTranslating, error: translateError, translateFull, translateSegment } = useTranslate()
 
   const transcript = useTranscriptStore((s) => s.transcript)
@@ -29,11 +52,12 @@ export function ProjectPage() {
   const setTranscript = useTranscriptStore((s) => s.setTranscript)
   const deleteSegment = useTranscriptStore((s) => s.deleteSegment)
   const transcribeProgress = useTranscriptStore((s) => s.transcribeProgress)
+  const translateProgress = useTranscriptStore((s) => s.translateProgress)
   const outputLanguage = useSettingsStore((s) => s.settings.outputLanguage)
 
   useEffect(() => {
     if (!id) return
-    const load = async () => {
+    const load = async (): Promise<void> => {
       let proj = useProjectStore.getState().projects.find((p) => p.id === id)
       if (!proj) {
         const fetched = await window.api.getProject({ projectId: id })
@@ -52,19 +76,22 @@ export function ProjectPage() {
     return () => setTranscript(null)
   }, [id, addProject, setTranscript])
 
-  const handleStartTranscribe = () => {
+  const handleStartTranscribe = (): void => {
     if (!project) return
     startTranscribe(project.id, project.storedFilePath)
   }
 
-  const handleDeleteSegment = async (segmentId: string) => {
+  const handleDeleteSegment = async (segmentId: string): Promise<void> => {
     if (!transcript) return
     deleteSegment(segmentId)
-    const updated = { ...transcript, segments: transcript.segments.filter((s) => s.id !== segmentId) }
+    const updated = {
+      ...transcript,
+      segments: transcript.segments.filter((s) => s.id !== segmentId)
+    }
     await window.api.saveTranscript(updated)
   }
 
-  const handleDeleteSegments = async (ids: string[]) => {
+  const handleDeleteSegments = async (ids: string[]): Promise<void> => {
     if (!transcript) return
     const idSet = new Set(ids)
     ids.forEach((id) => deleteSegment(id))
@@ -72,7 +99,9 @@ export function ProjectPage() {
     await window.api.saveTranscript(updated)
   }
 
-  const handleRetranscribeSegment = (segment: import('../../../shared/types').TranscriptSegment) => {
+  const handleRetranscribeSegment = (
+    segment: import('../../../shared/types').TranscriptSegment
+  ): void => {
     if (!project) return
     retranscribeSegment(project.id, project.storedFilePath, segment)
   }
@@ -85,9 +114,14 @@ export function ProjectPage() {
   const hasTranslation = transcript?.segments.some((s) => s.translatedText) ?? false
   const canExport = !!transcript && transcript.segments.length > 0 && !isTranscribing
 
-  const handleExport = async (format: 'txt' | 'srt' | 'csv') => {
+  const handleExport = async (format: 'txt' | 'srt' | 'csv'): Promise<void> => {
     if (!transcript || !project) return
-    await window.api.exportTranscript({ segments: transcript.segments, projectName: project.name, format, hasTranslation })
+    await window.api.exportTranscript({
+      segments: transcript.segments,
+      projectName: project.name,
+      format,
+      hasTranslation
+    })
   }
 
   if (!project) {
@@ -102,10 +136,26 @@ export function ProjectPage() {
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       <ModelDownloadDialog info={downloadInfo} />
       {/* Left panel */}
-      <Box sx={{ width: 320, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', p: 2, gap: 2, overflowY: 'auto' }}>
+      <Box
+        sx={{
+          width: 320,
+          flexShrink: 0,
+          borderRight: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          flexDirection: 'column',
+          p: 2,
+          gap: 2,
+          overflowY: 'auto'
+        }}
+      >
         <Box>
-          <Typography variant="subtitle2" fontWeight="bold" noWrap>{project.name}</Typography>
-          <Typography variant="caption" color="text.secondary">{project.originalFileName}</Typography>
+          <Typography variant="subtitle2" fontWeight="bold" noWrap>
+            {project.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {project.originalFileName}
+          </Typography>
         </Box>
 
         {mediaUrl && (
@@ -132,6 +182,7 @@ export function ProjectPage() {
           isTranscribing={isTranscribing}
           receivedSegments={transcribeProgress.receivedSegments}
           progressPct={progressPct}
+          chunkProgress={transcribeProgress.chunkProgress}
           transcribeError={transcribeError}
           onStart={handleStartTranscribe}
           onCancel={cancelTranscribe}
@@ -141,6 +192,7 @@ export function ProjectPage() {
           hasTranscript={!!transcript && transcript.segments.length > 0 && !isTranscribing}
           hasTranslation={hasTranslation}
           isTranslating={isTranslating}
+          translateProgress={translateProgress}
           error={translateError}
           outputLanguage={outputLanguage}
           onTranslateFull={translateFull}
@@ -148,8 +200,21 @@ export function ProjectPage() {
       </Box>
 
       {/* Right panel */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-        <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <Box
+        sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}
+      >
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0
+          }}
+        >
           <Typography variant="body2" fontWeight="medium">
             전사 결과
             {transcript && ` (${transcript.segments.length}개 세그먼트)`}
@@ -161,10 +226,16 @@ export function ProjectPage() {
           </Typography>
           {canExport && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>내보내기</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+                내보내기
+              </Typography>
               <ButtonGroup size="small" variant="outlined">
                 {(['txt', 'srt', 'csv'] as const).map((fmt) => (
-                  <Button key={fmt} onClick={() => handleExport(fmt)} sx={{ px: 1, fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                  <Button
+                    key={fmt}
+                    onClick={() => handleExport(fmt)}
+                    sx={{ px: 1, fontSize: '0.7rem', textTransform: 'uppercase' }}
+                  >
                     {fmt}
                   </Button>
                 ))}

@@ -14,7 +14,11 @@ export function ProgressBar({ value, label }: ProgressBarProps) {
           {label}
         </Typography>
       )}
-      <LinearProgress variant="determinate" value={Math.min(100, Math.max(0, value))} sx={{ borderRadius: 1 }} />
+      <LinearProgress
+        variant="determinate"
+        value={Math.min(100, Math.max(0, value))}
+        sx={{ borderRadius: 1 }}
+      />
     </Box>
   )
 }

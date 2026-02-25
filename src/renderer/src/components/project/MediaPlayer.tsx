@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
 import {
-  Box, IconButton, Slider, Paper, ToggleButtonGroup, ToggleButton, Typography,
+  Box,
+  IconButton,
+  Slider,
+  Paper,
+  ToggleButtonGroup,
+  ToggleButton,
+  Typography
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import PauseIcon from '@mui/icons-material/Pause'
@@ -39,8 +45,20 @@ function formatTime(ms: number): string {
 }
 
 export function MediaPlayer({
-  mediaUrl, mediaType, mediaRef, currentTimeMs, duration, isPlaying, playbackRate,
-  onTogglePlay, onSeek, onSpeedChange, onTimeUpdate, onPlay, onPause, onDurationChange,
+  mediaUrl,
+  mediaType,
+  mediaRef,
+  currentTimeMs,
+  duration,
+  isPlaying,
+  playbackRate,
+  onTogglePlay,
+  onSeek,
+  onSpeedChange,
+  onTimeUpdate,
+  onPlay,
+  onPause,
+  onDurationChange
 }: MediaPlayerProps) {
   const [volume, setVolume] = useState(1)
 
@@ -62,10 +80,25 @@ export function MediaPlayer({
           onPlay={onPlay}
           onPause={onPause}
           onDurationChange={onDurationChange}
-          sx={{ width: '100%', maxHeight: 208, bgcolor: 'black', display: 'block', objectFit: 'contain', cursor: 'pointer' }}
+          sx={{
+            width: '100%',
+            maxHeight: 208,
+            bgcolor: 'black',
+            display: 'block',
+            objectFit: 'contain',
+            cursor: 'pointer'
+          }}
         />
       ) : (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 112, bgcolor: 'background.default' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 112,
+            bgcolor: 'background.default'
+          }}
+        >
           <audio
             ref={mediaRef as RefObject<HTMLAudioElement>}
             src={mediaUrl}
@@ -81,7 +114,11 @@ export function MediaPlayer({
       <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
         {/* Seek bar */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 36, textAlign: 'right', fontFamily: 'monospace' }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ minWidth: 36, textAlign: 'right', fontFamily: 'monospace' }}
+          >
             {formatTime(currentTimeMs)}
           </Typography>
           <Slider
@@ -93,7 +130,11 @@ export function MediaPlayer({
             disabled={seekMax === 0}
             sx={{ flex: 1 }}
           />
-          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 36, fontFamily: 'monospace' }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ minWidth: 36, fontFamily: 'monospace' }}
+          >
             {formatTime(duration)}
           </Typography>
         </Box>
@@ -103,9 +144,19 @@ export function MediaPlayer({
           <IconButton
             onClick={onTogglePlay}
             size="small"
-            sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, width: 32, height: 32 }}
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              '&:hover': { bgcolor: 'primary.dark' },
+              width: 32,
+              height: 32
+            }}
           >
-            {isPlaying ? <PauseIcon sx={{ fontSize: 18 }} /> : <PlayArrowIcon sx={{ fontSize: 18 }} />}
+            {isPlaying ? (
+              <PauseIcon sx={{ fontSize: 18 }} />
+            ) : (
+              <PlayArrowIcon sx={{ fontSize: 18 }} />
+            )}
           </IconButton>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <VolumeUpIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
@@ -131,10 +182,16 @@ export function MediaPlayer({
             value={playbackRate}
             exclusive
             size="small"
-            onChange={(_, v) => { if (v !== null) onSpeedChange(v) }}
+            onChange={(_, v) => {
+              if (v !== null) onSpeedChange(v)
+            }}
           >
             {SPEEDS.map((s) => (
-              <ToggleButton key={s} value={s} sx={{ px: 0.75, py: 0.25, fontSize: '0.65rem', minWidth: 0, lineHeight: 1.4 }}>
+              <ToggleButton
+                key={s}
+                value={s}
+                sx={{ px: 0.75, py: 0.25, fontSize: '0.65rem', minWidth: 0, lineHeight: 1.4 }}
+              >
                 {s}x
               </ToggleButton>
             ))}

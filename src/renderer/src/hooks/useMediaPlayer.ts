@@ -71,6 +71,6 @@ export function useMediaPlayer() {
     handleTimeUpdate,
     handlePlay,
     handlePause,
-    handleDurationChange,
+    handleDurationChange
   }
 }

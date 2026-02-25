@@ -6,7 +6,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   deeplApiType: 'free',
   whisperModel: 'base',
   outputLanguage: 'KO',
-  theme: 'dark',
+  theme: 'dark'
 }
 
 interface SettingsStore {
@@ -22,5 +22,5 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   isOpen: false,
   setSettings: (settings) => set({ settings }),
   openSettings: () => set({ isOpen: true }),
-  closeSettings: () => set({ isOpen: false }),
+  closeSettings: () => set({ isOpen: false })
 }))

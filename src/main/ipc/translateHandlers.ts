@@ -10,22 +10,28 @@ interface DeepLTranslateParams {
   segments?: TranscriptSegment[]
 }
 
-async function callDeepL(text: string, targetLang: string, apiKey: string, apiType: 'free' | 'pro'): Promise<string> {
+async function callDeepL(
+  text: string | string[],
+  targetLang: string,
+  apiKey: string,
+  apiType: 'free' | 'pro'
+): Promise<string[]> {
   const baseUrl = apiType === 'free' ? 'https://api-free.deepl.com' : 'https://api.deepl.com'
+  const textArray = Array.isArray(text) ? text : [text]
   const res = await fetch(`${baseUrl}/v2/translate`, {
     method: 'POST',
     headers: {
       Authorization: `DeepL-Auth-Key ${apiKey}`,
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ text: [text], target_lang: targetLang }),
+    body: JSON.stringify({ text: textArray, target_lang: targetLang })
   })
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`DeepL API error ${res.status}: ${body}`)
   }
   const data = (await res.json()) as { translations: { text: string }[] }
-  return data.translations[0].text
+  return data.translations.map((t) => t.text)
 }
 
 function resolveTranscript(params: DeepLTranslateParams): Transcript | null {
@@ -40,7 +46,7 @@ function resolveTranscript(params: DeepLTranslateParams): Transcript | null {
       projectId: '',
       segments: params.segments,
       rawText: params.segments.map((s) => s.text).join(' '),
-      targetLanguage: null,
+      targetLanguage: null
     }
   }
 
@@ -48,72 +54,134 @@ function resolveTranscript(params: DeepLTranslateParams): Transcript | null {
 }
 
 export function registerTranslateHandlers(): void {
-  ipcMain.handle('translate:full', async (_event, params: DeepLTranslateParams): Promise<TranslateResult> => {
-    try {
-      const settings = store.get('settings')
-      if (!settings.deeplApiKey) {
-        return { success: false, error: 'DeepL API 키가 설정되지 않았습니다.' }
-      }
-
-      const transcript = resolveTranscript(params)
-      if (!transcript) return { success: false, error: 'Transcript not found' }
-
-      const texts = transcript.segments.map((s) => s.text)
-      const combined = texts.join('\n')
-      const translated = await callDeepL(combined, params.targetLang, settings.deeplApiKey, settings.deeplApiType)
-      const translatedLines = translated.split('\n')
-
-      const translatedSegments = transcript.segments.map((seg, i) => ({
-        id: seg.id,
-        translatedText: translatedLines[i] ?? '',
-      }))
-
-      // Persist only if the transcript exists in the store
-      const transcripts = store.get('transcripts')
-      if (transcripts[params.transcriptId]) {
-        transcripts[params.transcriptId].segments = transcript.segments.map((seg, i) => ({
-          ...seg,
-          translatedText: translatedLines[i] ?? '',
-        }))
-        transcripts[params.transcriptId].targetLanguage = params.targetLang
-        store.set('transcripts', transcripts)
-      }
-
-      return { success: true, translatedSegments }
-    } catch (err) {
-      return { success: false, error: (err as Error).message }
-    }
-  })
-
-  ipcMain.handle('translate:segment', async (_event, params: DeepLTranslateParams): Promise<TranslateResult> => {
-    try {
-      const settings = store.get('settings')
-      if (!settings.deeplApiKey) {
-        return { success: false, error: 'DeepL API 키가 설정되지 않았습니다.' }
-      }
-
-      const transcript = resolveTranscript(params)
-      if (!transcript) return { success: false, error: 'Transcript not found' }
-
-      const segment = transcript.segments.find((s) => s.id === params.segmentId)
-      if (!segment) return { success: false, error: 'Segment not found' }
-
-      const translated = await callDeepL(segment.text, params.targetLang, settings.deeplApiKey, settings.deeplApiType)
-
-      // Persist only if in store
-      const transcripts = store.get('transcripts')
-      if (transcripts[params.transcriptId]) {
-        const seg = transcripts[params.transcriptId].segments.find((s) => s.id === params.segmentId)
-        if (seg) {
-          seg.translatedText = translated
-          transcripts[params.transcriptId].targetLanguage = params.targetLang
-          store.set('transcripts', transcripts)
+  ipcMain.handle(
+    'translate:full',
+    async (event, params: DeepLTranslateParams): Promise<TranslateResult> => {
+      try {
+        const settings = store.get('settings')
+        if (!settings.deeplApiKey) {
+          return { success: false, error: 'DeepL API 키가 설정되지 않았습니다.' }
         }
-      }
 
-      return { success: true, translatedSegments: [{ id: segment.id, translatedText: translated }] }
-    } catch (err) {
-      return { success: false, error: (err as Error).message }
+        const transcript = resolveTranscript(params)
+        if (!transcript) return { success: false, error: 'Transcript not found' }
+
+        const batchSize = 50
+        let totalTranslatedSegments: { id: string; translatedText: string }[] = []
+
+        const transcripts = store.get('transcripts')
+        const persist = !!transcripts[params.transcriptId]
+
+        for (let i = 0; i < transcript.segments.length; i += batchSize) {
+          const batch = transcript.segments.slice(i, i + batchSize)
+          // Filter out explicitly empty text (DeepL omits them from the response array)
+          const validIndices: number[] = []
+          const textsToTranslate: string[] = []
+
+          batch.forEach((s, idx) => {
+            if (s.text.trim()) {
+              validIndices.push(idx)
+              textsToTranslate.push(s.text)
+            }
+          })
+
+          let translatedTextArray: string[] = []
+          if (textsToTranslate.length > 0) {
+            translatedTextArray = await callDeepL(
+              textsToTranslate,
+              params.targetLang,
+              settings.deeplApiKey,
+              settings.deeplApiType
+            )
+          }
+
+          const translatedSegments = batch.map((seg, j) => {
+            const mappedIdx = validIndices.indexOf(j)
+            const translatedText = mappedIdx !== -1 ? (translatedTextArray[mappedIdx] ?? '') : ''
+            return {
+              id: seg.id,
+              translatedText
+            }
+          })
+
+          totalTranslatedSegments = totalTranslatedSegments.concat(translatedSegments)
+
+          // Persist incrementally
+          if (persist) {
+            transcripts[params.transcriptId].segments = transcript.segments.map((seg) => {
+              const translatedMatch = totalTranslatedSegments.find((t) => t.id === seg.id)
+              return {
+                ...seg,
+                translatedText: translatedMatch
+                  ? translatedMatch.translatedText
+                  : seg.translatedText
+              }
+            })
+            transcripts[params.transcriptId].targetLanguage = params.targetLang
+            store.set('transcripts', transcripts)
+          }
+
+          // Emit progress
+          event.sender.send('translate:progress', {
+            success: true,
+            translatedSegments,
+            progress: {
+              current: Math.min(i + batchSize, transcript.segments.length),
+              total: transcript.segments.length
+            }
+          })
+        }
+
+        return { success: true, translatedSegments: totalTranslatedSegments }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
+      }
     }
-  })
+  )
+
+  ipcMain.handle(
+    'translate:segment',
+    async (_event, params: DeepLTranslateParams): Promise<TranslateResult> => {
+      try {
+        const settings = store.get('settings')
+        if (!settings.deeplApiKey) {
+          return { success: false, error: 'DeepL API 키가 설정되지 않았습니다.' }
+        }
+
+        const transcript = resolveTranscript(params)
+        if (!transcript) return { success: false, error: 'Transcript not found' }
+
+        const segment = transcript.segments.find((s) => s.id === params.segmentId)
+        if (!segment) return { success: false, error: 'Segment not found' }
+
+        const translatedArray = await callDeepL(
+          segment.text,
+          params.targetLang,
+          settings.deeplApiKey,
+          settings.deeplApiType
+        )
+        const translated = translatedArray[0]
+
+        // Persist only if in store
+        const transcripts = store.get('transcripts')
+        if (transcripts[params.transcriptId]) {
+          const seg = transcripts[params.transcriptId].segments.find(
+            (s) => s.id === params.segmentId
+          )
+          if (seg) {
+            seg.translatedText = translated
+            transcripts[params.transcriptId].targetLanguage = params.targetLang
+            store.set('transcripts', transcripts)
+          }
+        }
+
+        return {
+          success: true,
+          translatedSegments: [{ id: segment.id, translatedText: translated }]
+        }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
+      }
+    }
+  )
 }

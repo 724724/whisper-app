@@ -43,7 +43,10 @@ export function registerProjectHandlers(): void {
         store.set('transcripts', transcripts)
       }
 
-      store.set('projects', projects.filter((p) => p.id !== projectId))
+      store.set(
+        'projects',
+        projects.filter((p) => p.id !== projectId)
+      )
       return { success: true }
     } catch (err) {
       return { success: false, error: (err as Error).message }

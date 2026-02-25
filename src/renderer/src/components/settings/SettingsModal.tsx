@@ -1,9 +1,21 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Box, Button, TextField, Typography, FormControl,
-  Select, MenuItem, ToggleButtonGroup, ToggleButton,
-  Divider, IconButton, Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Box,
+  Button,
+  TextField,
+  Typography,
+  FormControl,
+  Select,
+  MenuItem,
+  ToggleButtonGroup,
+  ToggleButton,
+  Divider,
+  IconButton,
+  Paper
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import { useSettingsStore } from '../../store/settingsStore'
@@ -15,7 +27,7 @@ const MODELS: { name: WhisperModelName; label: string; size: string }[] = [
   { name: 'small', label: 'Small', size: '466 MB' },
   { name: 'medium', label: 'Medium', size: '1.5 GB' },
   { name: 'large-v2', label: 'Large v2', size: '2.9 GB' },
-  { name: 'large-v3', label: 'Large v3', size: '2.9 GB' },
+  { name: 'large-v3', label: 'Large v3', size: '2.9 GB' }
 ]
 
 const TARGET_LANGS = [
@@ -24,7 +36,7 @@ const TARGET_LANGS = [
   { code: 'JA', label: '일본어' },
   { code: 'ZH', label: '중국어 (간체)' },
   { code: 'DE', label: '독일어' },
-  { code: 'FR', label: '프랑스어' },
+  { code: 'FR', label: '프랑스어' }
 ]
 
 function SectionLabel({ children }: { children: ReactNode }) {
@@ -40,7 +52,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
         letterSpacing: '0.06em',
         px: 1.5,
         mb: 0.75,
-        mt: 0.5,
+        mt: 0.5
       }}
     >
       {children}
@@ -66,10 +78,25 @@ interface SettingsRowProps {
 function SettingsRow({ label, hint, children, last }: SettingsRowProps) {
   return (
     <>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.4, gap: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 2,
+          py: 1.4,
+          gap: 2
+        }}
+      >
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</Typography>
-          {hint && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2 }}>{hint}</Typography>}
+          <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+            {label}
+          </Typography>
+          {hint && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2 }}>
+              {hint}
+            </Typography>
+          )}
         </Box>
         <Box sx={{ flexShrink: 0 }}>{children}</Box>
       </Box>
@@ -103,12 +130,22 @@ export function SettingsModal() {
     fontSize: '0.85rem',
     '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
     bgcolor: 'action.hover',
-    minWidth: 150,
+    minWidth: 150
   }
 
   return (
     <Dialog open={isOpen} onClose={closeSettings} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.02em' }}>
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          pb: 1,
+          fontWeight: 700,
+          fontSize: '1.1rem',
+          letterSpacing: '-0.02em'
+        }}
+      >
         설정
         <IconButton size="small" onClick={closeSettings} sx={{ color: 'text.secondary' }}>
           <CloseIcon fontSize="small" />
@@ -116,7 +153,6 @@ export function SettingsModal() {
       </DialogTitle>
 
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 0.5, pb: 1 }}>
-
         {/* DeepL 설정 */}
         <Box>
           <SectionLabel>DeepL 번역</SectionLabel>
@@ -140,8 +176,17 @@ export function SettingsModal() {
                 value={form.deeplApiType}
                 exclusive
                 size="small"
-                onChange={(_, v) => { if (v) setForm((f) => ({ ...f, deeplApiType: v as 'free' | 'pro' })) }}
-                sx={{ '& .MuiToggleButton-root': { px: 2.5, py: 0.5, fontSize: '0.8rem', fontWeight: 600 } }}
+                onChange={(_, v) => {
+                  if (v) setForm((f) => ({ ...f, deeplApiType: v as 'free' | 'pro' }))
+                }}
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    px: 2.5,
+                    py: 0.5,
+                    fontSize: '0.8rem',
+                    fontWeight: 600
+                  }
+                }}
               >
                 <ToggleButton value="free">Free</ToggleButton>
                 <ToggleButton value="pro">Pro</ToggleButton>
@@ -154,20 +199,26 @@ export function SettingsModal() {
         <Box>
           <SectionLabel>Whisper 모델</SectionLabel>
           <SettingsGroup>
-            <SettingsRow
-              label="모델"
-              hint="GPU 사용 시 large-v3 권장"
-              last
-            >
+            <SettingsRow label="모델" hint="GPU 사용 시 large-v3 권장" last>
               <FormControl size="small">
                 <Select
                   value={form.whisperModel}
-                  onChange={(e) => setForm((f) => ({ ...f, whisperModel: e.target.value as WhisperModelName }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, whisperModel: e.target.value as WhisperModelName }))
+                  }
                   sx={selectSx}
                 >
                   {MODELS.map((m) => (
                     <MenuItem key={m.name} value={m.name} sx={{ fontSize: '0.85rem' }}>
-                      {m.label} <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>({m.size})</Typography>
+                      {m.label}{' '}
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ ml: 0.5 }}
+                      >
+                        ({m.size})
+                      </Typography>
                     </MenuItem>
                   ))}
                 </Select>
@@ -188,7 +239,9 @@ export function SettingsModal() {
                   sx={selectSx}
                 >
                   {TARGET_LANGS.map((l) => (
-                    <MenuItem key={l.code} value={l.code} sx={{ fontSize: '0.85rem' }}>{l.label}</MenuItem>
+                    <MenuItem key={l.code} value={l.code} sx={{ fontSize: '0.85rem' }}>
+                      {l.label}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -206,7 +259,9 @@ export function SettingsModal() {
                 exclusive
                 size="small"
                 fullWidth
-                onChange={(_, v) => { if (v !== null) setForm((f) => ({ ...f, theme: v })) }}
+                onChange={(_, v) => {
+                  if (v !== null) setForm((f) => ({ ...f, theme: v }))
+                }}
                 sx={{
                   borderRadius: '10px',
                   overflow: 'hidden',
@@ -214,8 +269,8 @@ export function SettingsModal() {
                     py: 0.75,
                     fontSize: '0.82rem',
                     fontWeight: 600,
-                    flex: 1,
-                  },
+                    flex: 1
+                  }
                 }}
               >
                 <ToggleButton value="dark">🌙 다크</ToggleButton>
@@ -225,7 +280,6 @@ export function SettingsModal() {
             </Box>
           </SettingsGroup>
         </Box>
-
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 3, pt: 1 }}>
