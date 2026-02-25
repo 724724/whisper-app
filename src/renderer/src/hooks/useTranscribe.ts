@@ -6,6 +6,12 @@ import { useSettingsStore } from '../store/settingsStore'
 import { backendFetch } from './useBackend'
 import type { Transcript, TranscriptSegment, WhisperModelName } from '../../../shared/types'
 
+export interface ModelDownloadInfo {
+  model: string
+  percent: number
+  sizeMb: number
+}
+
 export function useTranscribe() {
   const { isTranscribing, setTranscribing, setTranscript, setTranscribeProgress, addSegment, replaceSegment } =
     useTranscriptStore()
@@ -13,6 +19,7 @@ export function useTranscribe() {
   const settings = useSettingsStore((s) => s.settings)
   const [transcribeError, setTranscribeError] = useState<string | null>(null)
   const [retranscribingSegmentId, setRetranscribingSegmentId] = useState<string | null>(null)
+  const [downloadInfo, setDownloadInfo] = useState<ModelDownloadInfo | null>(null)
 
   const eventSourceRef = useRef<EventSource | null>(null)
   const currentJobIdRef = useRef<string | null>(null)
@@ -98,7 +105,15 @@ export function useTranscribe() {
             if (isCancelledRef.current) return
             const data = JSON.parse(e.data) as Record<string, unknown>
 
-            if (data.type === 'segment') {
+            if (data.type === 'model_downloading') {
+              setDownloadInfo({
+                model: data.model as string,
+                percent: data.percent as number,
+                sizeMb: data.size_mb as number,
+              })
+            } else if (data.type === 'model_loaded') {
+              setDownloadInfo(null)
+            } else if (data.type === 'segment') {
               const seg: TranscriptSegment = {
                 id: String(data.id),
                 startMs: Math.round((data.start as number) * 1000),
@@ -175,6 +190,7 @@ export function useTranscribe() {
         }
       } finally {
         setTranscribing(false)
+        setDownloadInfo(null)
         setTranscribeProgress({ jobId: null, receivedSegments: 0, lastSegmentEndMs: 0 })
         currentJobIdRef.current = null
         cancelResolveRef.current = null
@@ -253,5 +269,5 @@ export function useTranscribe() {
     [settings.whisperModel, replaceSegment]
   )
 
-  return { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId }
+  return { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId, downloadInfo }
 }

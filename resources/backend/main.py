@@ -1,7 +1,10 @@
 import asyncio
 import json
+import os
 import signal
 import subprocess
+import threading
+import time
 import traceback
 import uuid
 from typing import AsyncGenerator
@@ -41,6 +44,8 @@ AVAILABLE_MODELS = [
     {"name": "large-v2", "size_mb": 2900},
     {"name": "large-v3", "size_mb": 2900},
 ]
+
+_MODEL_SIZE_MB: dict[str, int] = {m["name"]: m["size_mb"] for m in AVAILABLE_MODELS}
 
 # Chunked transcription constants
 CHUNK_DURATION = 900.0   # 15 minutes per chunk
@@ -130,6 +135,99 @@ async def cancel_transcription(job_id: str):
     return {"cancelled": True}
 
 
+# ─── Model download with progress ────────────────────────────────────────────
+
+def _download_model_with_progress(model_name: str, job_id: str, emit_fn) -> bool:
+    """
+    Download model from HuggingFace Hub while emitting SSE progress events.
+
+    Emits:  {"type": "model_downloading", "model": ..., "percent": 0-100, "size_mb": ...}
+    Returns True on success, False if job was cancelled.
+    Raises RuntimeError on download failure.
+    """
+    from huggingface_hub import snapshot_download, HfApi
+
+    repo_id = model_name if "/" in model_name else f"Systran/faster-whisper-{model_name}"
+    size_mb = _MODEL_SIZE_MB.get(model_name, 0)
+
+    # ── Try to get precise total size from HF API ─────────────────────────────
+    total_bytes = 0
+    try:
+        api = HfApi()
+        siblings = api.model_info(repo_id, timeout=10).siblings or []
+        ALLOWED = (".json", ".bin", ".msgpack", ".txt", ".tiktoken", ".model")
+        total_bytes = sum(
+            (s.size or 0) for s in siblings
+            if any(s.rfilename.endswith(ext) for ext in ALLOWED)
+        )
+        if total_bytes > 0:
+            size_mb = round(total_bytes / 1_048_576)
+    except Exception:
+        # Network may be slow; fall back to known size
+        total_bytes = size_mb * 1_048_576
+
+    emit_fn({"type": "model_downloading", "model": model_name, "percent": 0, "size_mb": size_mb})
+
+    # ── Start snapshot_download in a daemon thread ────────────────────────────
+    dl_errors: list[Exception] = []
+
+    def do_download():
+        try:
+            snapshot_download(
+                repo_id,
+                allow_patterns=["config.json", "tokenizer.json", "vocabulary.json",
+                                 "*.bin", "*.msgpack"],
+            )
+        except Exception as e:
+            dl_errors.append(e)
+
+    dl_thread = threading.Thread(target=do_download, daemon=True)
+    dl_thread.start()
+
+    # ── Poll cache blobs directory for byte-level progress ────────────────────
+    cache_root = os.environ.get(
+        "HF_HOME", os.path.join(os.path.expanduser("~"), ".cache", "huggingface")
+    )
+    blobs_dir = os.path.join(
+        cache_root, "hub",
+        f"models--{repo_id.replace('/', '--')}",
+        "blobs",
+    )
+
+    last_percent = -1
+    while dl_thread.is_alive():
+        # Honour cancellation
+        if job_id in _cancelled_jobs:
+            return False
+
+        downloaded_bytes = 0
+        if os.path.isdir(blobs_dir):
+            for entry in os.scandir(blobs_dir):
+                if entry.name.endswith(".lock"):
+                    continue
+                try:
+                    downloaded_bytes += entry.stat().st_size
+                except OSError:
+                    pass
+
+        percent = min(99, int(downloaded_bytes / total_bytes * 100)) if total_bytes > 0 else 0
+
+        if percent != last_percent:
+            emit_fn({"type": "model_downloading", "model": model_name,
+                     "percent": percent, "size_mb": size_mb})
+            last_percent = percent
+
+        time.sleep(0.5)
+
+    if dl_errors:
+        raise RuntimeError(f"모델 다운로드 실패: {dl_errors[0]}")
+
+    emit_fn({"type": "model_downloading", "model": model_name, "percent": 100, "size_mb": size_mb})
+    return True
+
+
+# ─── Core transcription helpers ───────────────────────────────────────────────
+
 def _do_transcription(
     job_id: str,
     model,
@@ -190,14 +288,6 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
     """
     Transcribe an entire file, using 15-minute chunks with 15-second overlap to
     prevent Whisper hallucination on long audio (≥15 min).
-
-    Strategy:
-      - Each chunk is fed to the model with OVERLAP seconds of audio before and
-        after its "responsibility zone" (= the boundary zone it owns).
-      - Only segments whose start time falls inside the responsibility zone are
-        kept. Segments in the overlap region appear in two consecutive chunks but
-        are emitted only by the chunk that owns the boundary.
-      - The language detected in chunk 0 is reused for all subsequent chunks.
     """
     duration = transcriber.get_audio_duration(file_path)
 
@@ -207,9 +297,6 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
         return
 
     # ── Build chunk list ──────────────────────────────────────────────────────
-    # Each entry: (clip_start, clip_end, boundary_start, is_last)
-    #   clip_*      = what we feed to the model (includes overlap)
-    #   boundary_*  = which output segment start times we actually keep
     chunks: list[tuple[float, float, float, bool]] = []
     i = 0
     while True:
@@ -232,7 +319,7 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
         try:
             print(
                 f"[backend] chunk {chunk_idx + 1}/{len(chunks)}: "
-                f"{clip_start:.0f}s – {clip_end:.0f}s "
+                f"{clip_start:.0f}s–{clip_end:.0f}s "
                 f"(keeping [{boundary_start:.0f}s, {'end' if is_last else f'{boundary_end:.0f}s'}])",
                 flush=True,
             )
@@ -241,7 +328,6 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
 
         kwargs: dict = {
             'beam_size': 5,
-            # Pass detected language to subsequent chunks (faster + consistent)
             'language': detected_language or (language if language else None),
             'vad_filter': True,
             'clip_timestamps': f"{clip_start},{clip_end}",
@@ -249,12 +335,10 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
 
         segments, info = model.transcribe(file_path, **kwargs)
 
-        # Capture language from first chunk
         if detected_language is None:
             detected_language = info.language
 
         for seg in segments:
-            # Honour cancellation requests between segments
             if job_id in _cancelled_jobs:
                 _cancelled_jobs.discard(job_id)
                 _jobs[job_id].append({
@@ -265,12 +349,10 @@ def _do_full_transcription(job_id: str, model, file_path: str, language: str | N
                 })
                 return
 
-            # ── Boundary filter ───────────────────────────────────────────────
-            # Discard segments that belong to the overlap zone of an adjacent chunk.
             if seg.start < boundary_start:
-                continue  # Overlap before: owned by the previous chunk
+                continue
             if not is_last and seg.start >= boundary_end:
-                continue  # Overlap after: owned by the next chunk
+                continue
 
             event = {
                 "type": "segment",
@@ -306,19 +388,37 @@ def _run_transcription(
 ):
     def _run(m):
         if start_ms is not None:
-            # Segment retranscription: transcribe only the specified clip, no chunking
             _do_transcription(job_id, m, file_path, language, start_ms, end_ms)
         else:
-            # Full-file transcription: auto-chunk long audio to prevent hallucination
             _do_full_transcription(job_id, m, file_path, language)
 
     try:
+        # ── Phase 1: Download model with progress if not cached ───────────────
+        if not transcriber.is_model_downloaded(model_name):
+            def emit_dl(event):
+                _jobs[job_id].append(event)
+
+            ok = _download_model_with_progress(model_name, job_id, emit_dl)
+            if not ok:
+                # Cancelled during download
+                _cancelled_jobs.discard(job_id)
+                _jobs[job_id].append({
+                    "type": "done",
+                    "language": "",
+                    "total_segments": 0,
+                    "cancelled": True,
+                })
+                return
+
+        # ── Phase 2: Load model (instant when already cached) ─────────────────
+        _jobs[job_id].append({"type": "model_loaded", "model": model_name})
         model = transcriber.load_model(model_name)
+
+        # ── Phase 3: Transcribe ───────────────────────────────────────────────
         try:
             _run(model)
         except Exception as cuda_e:
             if _is_cuda_error(str(cuda_e)):
-                # CUDA runtime failed during inference — fall back to CPU and retry
                 try:
                     print(f"[backend] CUDA inference failed: {cuda_e}. Retrying on CPU...", flush=True)
                 except (BrokenPipeError, OSError):
@@ -329,6 +429,7 @@ def _run_transcription(
                 _run(model)
             else:
                 raise
+
     except Exception as e:
         tb = traceback.format_exc()
         try:
@@ -354,7 +455,6 @@ async def stream_transcription(job_id: str):
                 yield f"data: {json.dumps(ev)}\n\n"
                 sent_index += 1
                 if ev["type"] in ("done", "error"):
-                    # Clean up job after streaming
                     _jobs.pop(job_id, None)
                     _job_done.pop(job_id, None)
                     return

@@ -5,6 +5,7 @@ import { MediaPlayer } from '../components/project/MediaPlayer'
 import { TranscriptPanel } from '../components/project/TranscriptPanel'
 import { TranscribeButton } from '../components/project/TranscribeButton'
 import { TranslationPanel } from '../components/project/TranslationPanel'
+import { ModelDownloadDialog } from '../components/project/ModelDownloadDialog'
 import { useMediaPlayer } from '../hooks/useMediaPlayer'
 import { useTranscribe } from '../hooks/useTranscribe'
 import { useTranslate } from '../hooks/useTranslate'
@@ -20,7 +21,7 @@ export function ProjectPage() {
   const addProject = useProjectStore((s) => s.addProject)
 
   const { mediaRef, currentTimeMs, isPlaying, duration, playbackRate, seekTo, seekToOnly, togglePlay, setPlaybackRate, handleTimeUpdate, handlePlay, handlePause, handleDurationChange } = useMediaPlayer()
-  const { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId } = useTranscribe()
+  const { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId, downloadInfo } = useTranscribe()
   const { isTranslating, error: translateError, translateFull, translateSegment } = useTranslate()
 
   const transcript = useTranscriptStore((s) => s.transcript)
@@ -99,6 +100,7 @@ export function ProjectPage() {
 
   return (
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+      <ModelDownloadDialog info={downloadInfo} />
       {/* Left panel */}
       <Box sx={{ width: 320, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', p: 2, gap: 2, overflowY: 'auto' }}>
         <Box>

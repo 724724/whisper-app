@@ -91,6 +91,37 @@ def unload_model() -> None:
     _model_name = None
 
 
+def is_model_downloaded(model_name: str) -> bool:
+    """Return True if the model is already present in the HuggingFace Hub cache."""
+    repo_id = model_name if "/" in model_name else f"Systran/faster-whisper-{model_name}"
+
+    # Primary check: use huggingface_hub cache API (fast, no network)
+    try:
+        from huggingface_hub import try_to_load_from_cache
+        result = try_to_load_from_cache(repo_id, "config.json")
+        if isinstance(result, str):
+            return True
+    except (ImportError, Exception):
+        pass
+
+    # Fallback: inspect cache directory directly
+    try:
+        import os
+        cache_root = os.environ.get(
+            "HF_HOME", os.path.join(os.path.expanduser("~"), ".cache", "huggingface")
+        )
+        snapshots_dir = os.path.join(
+            cache_root, "hub", f"models--{repo_id.replace('/', '--')}", "snapshots"
+        )
+        for snap in os.listdir(snapshots_dir):
+            if os.path.isfile(os.path.join(snapshots_dir, snap, "config.json")):
+                return True
+    except Exception:
+        pass
+
+    return False
+
+
 def get_audio_duration(file_path: str) -> float:
     """Return the duration of an audio/video file in seconds using PyAV (bundled with faster-whisper)."""
     try:
