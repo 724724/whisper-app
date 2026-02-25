@@ -41,7 +41,9 @@ export function useTranslate() {
       if (result.translatedSegments?.length) {
         updateSegmentsTranslation(result.translatedSegments)
       }
-      setTranscript({ ...transcript, targetLanguage: settings.outputLanguage })
+      // Read the CURRENT store state to avoid overwriting translations via stale closure
+      const current = useTranscriptStore.getState().transcript
+      if (current) setTranscript({ ...current, targetLanguage: settings.outputLanguage })
     } catch (err) {
       setError((err as Error).message)
     } finally {
