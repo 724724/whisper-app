@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import { Box, Typography, CircularProgress, IconButton, Button } from '@mui/material'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -29,7 +29,7 @@ export function TranscriptPanel({
   onDeleteSegments,
   onRetranscribeSegment,
   retranscribingSegmentId
-}: TranscriptPanelProps) {
+}: TranscriptPanelProps): ReactNode {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null)
   const [isFollowing, setIsFollowing] = useState(true)
@@ -45,13 +45,13 @@ export function TranscriptPanel({
     const el = scrollRef.current
     if (!el) return
 
-    const onWheel = () => {
+    const onWheel = (): void => {
       isUserScrolling.current = true
     }
-    const onTouchStart = () => {
+    const onTouchStart = (): void => {
       isUserScrolling.current = true
     }
-    const onScroll = () => {
+    const onScroll = (): void => {
       if (isUserScrolling.current) {
         setIsFollowing(false)
         isUserScrolling.current = false
@@ -94,13 +94,32 @@ export function TranscriptPanel({
     container.scrollTo({ top: targetScrollTop, behavior: 'smooth' })
   }, [activeSegmentId, isTranscribing])
 
-  // Reset follow mode when transcription starts
-  useEffect(() => {
+  // Reset follow mode + selection when transcription starts.
+  // Using the React-recommended "setState during render on prop change" pattern
+  // to avoid calling setState inside an effect body.
+  const [prevIsTranscribing, setPrevIsTranscribing] = useState(isTranscribing)
+  if (prevIsTranscribing !== isTranscribing) {
+    setPrevIsTranscribing(isTranscribing)
     if (isTranscribing) {
       setIsFollowing(true)
       setSelectedIds(new Set())
     }
-  }, [isTranscribing])
+  }
+
+  // Ctrl+C: copy selected segments to clipboard
+  useEffect(() => {
+    if (selectedIds.size === 0) return
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const selected = (transcript?.segments ?? []).filter((s) => selectedIds.has(s.id))
+        const text = selected.map((s) => s.text).join('\n')
+        navigator.clipboard.writeText(text)
+        e.preventDefault()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedIds, transcript?.segments])
 
   const handleSelect = useCallback(
     (id: string, startMs: number, e: React.MouseEvent) => {
