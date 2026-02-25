@@ -89,3 +89,20 @@ def unload_model() -> None:
     global _model, _model_name
     _model = None
     _model_name = None
+
+
+def get_audio_duration(file_path: str) -> float:
+    """Return the duration of an audio/video file in seconds using PyAV (bundled with faster-whisper)."""
+    try:
+        import av
+        with av.open(file_path) as container:
+            if container.duration is not None:
+                # container.duration is in microseconds
+                return container.duration / 1_000_000
+            # Fallback: sum stream durations
+            for stream in container.streams:
+                if stream.duration and stream.time_base:
+                    return float(stream.duration * stream.time_base)
+        return 0.0
+    except Exception:
+        return 0.0

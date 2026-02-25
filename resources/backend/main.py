@@ -42,6 +42,10 @@ AVAILABLE_MODELS = [
     {"name": "large-v3", "size_mb": 2900},
 ]
 
+# Chunked transcription constants
+CHUNK_DURATION = 900.0   # 15 minutes per chunk
+OVERLAP = 15.0           # 15-second overlap on each side of a boundary
+
 
 # ─── Health ──────────────────────────────────────────────────────────────────
 
@@ -126,26 +130,35 @@ async def cancel_transcription(job_id: str):
     return {"cancelled": True}
 
 
-def _do_transcription(job_id: str, model, file_path: str, language: str | None, start_ms: int | None = None, end_ms: int | None = None) -> None:
-    """Run the transcription loop and append events to _jobs[job_id]."""
+def _do_transcription(
+    job_id: str,
+    model,
+    file_path: str,
+    language: str | None,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+) -> None:
+    """
+    Transcribe a specific clip (used for per-segment retranscription).
+    Emits SSE events directly to _jobs[job_id].
+    """
     clip_timestamps = None
     if start_ms is not None:
         start_sec = start_ms / 1000.0
         end_sec = end_ms / 1000.0 if end_ms is not None else None
         clip_timestamps = f"{start_sec},{end_sec}" if end_sec is not None else str(start_sec)
 
-    transcribe_kwargs: dict = {
+    kwargs: dict = {
         'beam_size': 5,
         'language': language if language else None,
         'vad_filter': True,
     }
     if clip_timestamps is not None:
-        transcribe_kwargs['clip_timestamps'] = clip_timestamps
+        kwargs['clip_timestamps'] = clip_timestamps
 
-    segments, info = model.transcribe(file_path, **transcribe_kwargs)
+    segments, info = model.transcribe(file_path, **kwargs)
     segment_list = []
     for i, seg in enumerate(segments):
-        # Check for user-initiated cancellation between segments
         if job_id in _cancelled_jobs:
             _cancelled_jobs.discard(job_id)
             _jobs[job_id].append({
@@ -173,6 +186,109 @@ def _do_transcription(job_id: str, model, file_path: str, language: str | None, 
     })
 
 
+def _do_full_transcription(job_id: str, model, file_path: str, language: str | None) -> None:
+    """
+    Transcribe an entire file, using 15-minute chunks with 15-second overlap to
+    prevent Whisper hallucination on long audio (≥15 min).
+
+    Strategy:
+      - Each chunk is fed to the model with OVERLAP seconds of audio before and
+        after its "responsibility zone" (= the boundary zone it owns).
+      - Only segments whose start time falls inside the responsibility zone are
+        kept. Segments in the overlap region appear in two consecutive chunks but
+        are emitted only by the chunk that owns the boundary.
+      - The language detected in chunk 0 is reused for all subsequent chunks.
+    """
+    duration = transcriber.get_audio_duration(file_path)
+
+    # Short audio — no chunking needed
+    if duration <= 0 or duration <= CHUNK_DURATION + OVERLAP:
+        _do_transcription(job_id, model, file_path, language)
+        return
+
+    # ── Build chunk list ──────────────────────────────────────────────────────
+    # Each entry: (clip_start, clip_end, boundary_start, is_last)
+    #   clip_*      = what we feed to the model (includes overlap)
+    #   boundary_*  = which output segment start times we actually keep
+    chunks: list[tuple[float, float, float, bool]] = []
+    i = 0
+    while True:
+        boundary_start = i * CHUNK_DURATION
+        if boundary_start >= duration:
+            break
+        clip_start = max(0.0, boundary_start - OVERLAP)
+        clip_end   = boundary_start + CHUNK_DURATION + OVERLAP
+        is_last    = clip_end >= duration
+        chunks.append((clip_start, min(clip_end, duration), boundary_start, is_last))
+        i += 1
+
+    # ── Transcribe each chunk ─────────────────────────────────────────────────
+    all_segments: list[dict] = []
+    detected_language: str | None = None
+
+    for chunk_idx, (clip_start, clip_end, boundary_start, is_last) in enumerate(chunks):
+        boundary_end = boundary_start + CHUNK_DURATION
+
+        try:
+            print(
+                f"[backend] chunk {chunk_idx + 1}/{len(chunks)}: "
+                f"{clip_start:.0f}s – {clip_end:.0f}s "
+                f"(keeping [{boundary_start:.0f}s, {'end' if is_last else f'{boundary_end:.0f}s'}])",
+                flush=True,
+            )
+        except (BrokenPipeError, OSError):
+            pass
+
+        kwargs: dict = {
+            'beam_size': 5,
+            # Pass detected language to subsequent chunks (faster + consistent)
+            'language': detected_language or (language if language else None),
+            'vad_filter': True,
+            'clip_timestamps': f"{clip_start},{clip_end}",
+        }
+
+        segments, info = model.transcribe(file_path, **kwargs)
+
+        # Capture language from first chunk
+        if detected_language is None:
+            detected_language = info.language
+
+        for seg in segments:
+            # Honour cancellation requests between segments
+            if job_id in _cancelled_jobs:
+                _cancelled_jobs.discard(job_id)
+                _jobs[job_id].append({
+                    "type": "done",
+                    "language": detected_language or "unknown",
+                    "total_segments": len(all_segments),
+                    "cancelled": True,
+                })
+                return
+
+            # ── Boundary filter ───────────────────────────────────────────────
+            # Discard segments that belong to the overlap zone of an adjacent chunk.
+            if seg.start < boundary_start:
+                continue  # Overlap before: owned by the previous chunk
+            if not is_last and seg.start >= boundary_end:
+                continue  # Overlap after: owned by the next chunk
+
+            event = {
+                "type": "segment",
+                "id": str(len(all_segments)),
+                "start": seg.start,
+                "end": seg.end,
+                "text": seg.text.strip(),
+            }
+            _jobs[job_id].append(event)
+            all_segments.append(event)
+
+    _jobs[job_id].append({
+        "type": "done",
+        "language": detected_language or "unknown",
+        "total_segments": len(all_segments),
+    })
+
+
 def _is_cuda_error(msg: str) -> bool:
     m = msg.lower()
     return "libcublas" in m or "libcudart" in m or (
@@ -180,11 +296,26 @@ def _is_cuda_error(msg: str) -> bool:
     )
 
 
-def _run_transcription(job_id: str, file_path: str, model_name: str, language: str | None, start_ms: int | None = None, end_ms: int | None = None):
+def _run_transcription(
+    job_id: str,
+    file_path: str,
+    model_name: str,
+    language: str | None,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+):
+    def _run(m):
+        if start_ms is not None:
+            # Segment retranscription: transcribe only the specified clip, no chunking
+            _do_transcription(job_id, m, file_path, language, start_ms, end_ms)
+        else:
+            # Full-file transcription: auto-chunk long audio to prevent hallucination
+            _do_full_transcription(job_id, m, file_path, language)
+
     try:
         model = transcriber.load_model(model_name)
         try:
-            _do_transcription(job_id, model, file_path, language, start_ms, end_ms)
+            _run(model)
         except Exception as cuda_e:
             if _is_cuda_error(str(cuda_e)):
                 # CUDA runtime failed during inference — fall back to CPU and retry
@@ -194,14 +325,16 @@ def _run_transcription(job_id: str, file_path: str, model_name: str, language: s
                     pass
                 transcriber.disable_cuda()
                 model = transcriber.load_model(model_name)
-                # Clear any partial events already added
                 _jobs[job_id] = []
-                _do_transcription(job_id, model, file_path, language, start_ms, end_ms)
+                _run(model)
             else:
                 raise
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"[backend] transcription error:\n{tb}", flush=True)
+        try:
+            print(f"[backend] transcription error:\n{tb}", flush=True)
+        except (BrokenPipeError, OSError):
+            pass
         _jobs[job_id].append({"type": "error", "message": f"{e}\n\n{tb}"})
     finally:
         _job_done[job_id].set()
