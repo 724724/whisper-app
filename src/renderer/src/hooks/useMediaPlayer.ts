@@ -18,6 +18,13 @@ export function useMediaPlayer() {
     }
   }, [])
 
+  // Seek without starting playback (used when clicking transcript segments)
+  const seekToOnly = useCallback((ms: number) => {
+    if (mediaRef.current) {
+      mediaRef.current.currentTime = ms / 1000
+    }
+  }, [])
+
   const togglePlay = useCallback(() => {
     if (!mediaRef.current) return
     if (mediaRef.current.paused) {
@@ -58,6 +65,7 @@ export function useMediaPlayer() {
     duration,
     playbackRate,
     seekTo,
+    seekToOnly,
     togglePlay,
     setPlaybackRate,
     handleTimeUpdate,

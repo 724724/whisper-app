@@ -9,7 +9,8 @@ import type { TranscriptSegment } from '../../../../shared/types'
 interface TranscriptSegmentItemProps {
   segment: TranscriptSegment
   isActive: boolean
-  onSeek: (ms: number) => void
+  isSelected: boolean
+  onSelect: (e: React.MouseEvent) => void
   onTranslate?: (segmentId: string) => void
   onDelete?: (segmentId: string) => void
   onRetranscribe?: (segment: TranscriptSegment) => void
@@ -28,7 +29,8 @@ function formatTimestamp(ms: number): string {
 export function TranscriptSegmentItem({
   segment,
   isActive,
-  onSeek,
+  isSelected,
+  onSelect,
   onTranslate,
   onDelete,
   onRetranscribe,
@@ -43,22 +45,35 @@ export function TranscriptSegmentItem({
 
   const handleMenuClose = () => setAnchorEl(null)
 
+  const bgColor = isSelected
+    ? 'rgba(59,130,246,0.18)'
+    : isActive
+      ? 'primary.dark'
+      : 'transparent'
+
+  const borderColor = isSelected
+    ? 'rgba(59,130,246,0.45)'
+    : isActive
+      ? 'primary.dark'
+      : 'transparent'
+
   return (
     <Box
-      onClick={() => onSeek(segment.startMs)}
+      onClick={onSelect}
       sx={{
         px: 1.5,
         py: 1,
         borderRadius: 1,
         cursor: 'pointer',
         border: '1px solid',
-        borderColor: isActive ? 'primary.dark' : 'transparent',
-        bgcolor: isActive ? 'primary.dark' : 'transparent',
-        '&:hover': { bgcolor: isActive ? 'primary.dark' : 'action.hover' },
+        borderColor,
+        bgcolor: bgColor,
+        '&:hover': { bgcolor: isSelected ? 'rgba(59,130,246,0.22)' : isActive ? 'primary.dark' : 'action.hover' },
         '&:hover .seg-menu-btn': { opacity: 1 },
         display: 'flex',
         gap: 1.5,
         alignItems: 'flex-start',
+        userSelect: 'none',
       }}
     >
       {/* 타임스탬프 */}

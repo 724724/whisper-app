@@ -19,7 +19,7 @@ export function ProjectPage() {
   const project = useProjectStore((s) => s.projects.find((p) => p.id === id) ?? null)
   const addProject = useProjectStore((s) => s.addProject)
 
-  const { mediaRef, currentTimeMs, isPlaying, duration, playbackRate, seekTo, togglePlay, setPlaybackRate, handleTimeUpdate, handlePlay, handlePause, handleDurationChange } = useMediaPlayer()
+  const { mediaRef, currentTimeMs, isPlaying, duration, playbackRate, seekTo, seekToOnly, togglePlay, setPlaybackRate, handleTimeUpdate, handlePlay, handlePause, handleDurationChange } = useMediaPlayer()
   const { isTranscribing, startTranscribe, transcribeError, cancelTranscribe, retranscribeSegment, retranscribingSegmentId } = useTranscribe()
   const { isTranslating, error: translateError, translateFull, translateSegment } = useTranslate()
 
@@ -60,6 +60,14 @@ export function ProjectPage() {
     if (!transcript) return
     deleteSegment(segmentId)
     const updated = { ...transcript, segments: transcript.segments.filter((s) => s.id !== segmentId) }
+    await window.api.saveTranscript(updated)
+  }
+
+  const handleDeleteSegments = async (ids: string[]) => {
+    if (!transcript) return
+    const idSet = new Set(ids)
+    ids.forEach((id) => deleteSegment(id))
+    const updated = { ...transcript, segments: transcript.segments.filter((s) => !idSet.has(s.id)) }
     await window.api.saveTranscript(updated)
   }
 
@@ -163,15 +171,17 @@ export function ProjectPage() {
           )}
         </Box>
 
-        <Box sx={{ flex: 1, overflowY: 'auto', p: 1 }}>
+        {/* TranscriptPanel is now the scroll container itself */}
+        <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <TranscriptPanel
             transcript={transcript}
             activeSegmentId={activeSegmentId}
             isTranscribing={isTranscribing}
             receivedSegments={transcribeProgress.receivedSegments}
-            onSeek={seekTo}
+            onSeekOnly={seekToOnly}
             onTranslateSegment={translateSegment}
             onDeleteSegment={handleDeleteSegment}
+            onDeleteSegments={handleDeleteSegments}
             onRetranscribeSegment={handleRetranscribeSegment}
             retranscribingSegmentId={retranscribingSegmentId}
           />

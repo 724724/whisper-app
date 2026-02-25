@@ -7,8 +7,11 @@ interface BackendStore {
   cudaAvailable: boolean
   gpuName: string | null
   logs: string[]
+  usagePercent: number | null
+  usageType: 'gpu' | 'cpu' | null
   setStatus: (status: BackendStatus) => void
   setHealthInfo: (info: { cudaAvailable: boolean; gpuName: string | null }) => void
+  setUsage: (type: 'gpu' | 'cpu', percent: number | null) => void
 }
 
 export const useBackendStore = create<BackendStore>((set) => ({
@@ -17,6 +20,8 @@ export const useBackendStore = create<BackendStore>((set) => ({
   cudaAvailable: false,
   gpuName: null,
   logs: [],
+  usagePercent: null,
+  usageType: null,
   setStatus: (status) =>
     set((state) => ({
       status,
@@ -29,4 +34,5 @@ export const useBackendStore = create<BackendStore>((set) => ({
     })),
   setHealthInfo: (info) =>
     set({ cudaAvailable: info.cudaAvailable, gpuName: info.gpuName }),
+  setUsage: (type, percent) => set({ usageType: type, usagePercent: percent }),
 }))

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import signal
+import subprocess
 import traceback
 import uuid
 from typing import AsyncGenerator
@@ -75,6 +76,26 @@ def load_model(req: LoadModelRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ─── Usage ───────────────────────────────────────────────────────────────────
+
+@app.get("/usage")
+def get_usage():
+    cuda_info = transcriber.get_cuda_info()
+    if cuda_info["cuda_available"]:
+        try:
+            r = subprocess.run(
+                ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=2,
+            )
+            percent = int(r.stdout.strip().split("\n")[0]) if r.returncode == 0 else None
+        except Exception:
+            percent = None
+        return {"type": "gpu", "percent": percent}
+    else:
+        import psutil
+        return {"type": "cpu", "percent": round(psutil.cpu_percent(interval=0.1))}
+
+
 # ─── Transcription ───────────────────────────────────────────────────────────
 
 class TranscribeRequest(BaseModel):
@@ -113,13 +134,15 @@ def _do_transcription(job_id: str, model, file_path: str, language: str | None, 
         end_sec = end_ms / 1000.0 if end_ms is not None else None
         clip_timestamps = f"{start_sec},{end_sec}" if end_sec is not None else str(start_sec)
 
-    segments, info = model.transcribe(
-        file_path,
-        beam_size=5,
-        language=language if language else None,
-        vad_filter=True,
-        clip_timestamps=clip_timestamps,
-    )
+    transcribe_kwargs: dict = {
+        'beam_size': 5,
+        'language': language if language else None,
+        'vad_filter': True,
+    }
+    if clip_timestamps is not None:
+        transcribe_kwargs['clip_timestamps'] = clip_timestamps
+
+    segments, info = model.transcribe(file_path, **transcribe_kwargs)
     segment_list = []
     for i, seg in enumerate(segments):
         # Check for user-initiated cancellation between segments
