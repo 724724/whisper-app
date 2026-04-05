@@ -7,7 +7,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   whisperModel: 'base',
   outputLanguage: 'KO',
   theme: 'dark',
-  audioDeviceId: ''
+  audioDeviceId: '',
+  realtimeEnhance: false,
+  transcribeLanguage: ''
 }
 
 interface SettingsStore {

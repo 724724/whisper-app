@@ -1,5 +1,16 @@
+import os
 import ctypes
 import subprocess
+
+# On Windows with Python 3.8+, DLLs are only loaded from os.add_dll_directory
+# or system folders. We add PATH entries to ensure CUDA Toolkit DLLs are found.
+if os.name == "nt" and hasattr(os, "add_dll_directory"):
+    for p in os.environ.get("PATH", "").split(";"):
+        if p and os.path.isdir(p):
+            try:
+                os.add_dll_directory(p)
+            except Exception:
+                pass
 
 from faster_whisper import WhisperModel
 import ctranslate2
@@ -20,9 +31,18 @@ _cuda_usable: bool | None = None
 
 def _check_cuda_libs() -> bool:
     """Try to dlopen the CUDA 12 libraries that ctranslate2 actually needs."""
-    for lib in ("libcublas.so.12", "libcudart.so.12"):
+    if os.name == "nt":
+        libs = ("cublas64_12.dll", "cudart64_12.dll")
+    else:
+        libs = ("libcublas.so.12", "libcudart.so.12")
+        
+    for lib in libs:
         try:
-            ctypes.CDLL(lib)
+            if os.name == "nt":
+                # winmode=0 searches PATH if add_dll_directory wasn't enough
+                ctypes.CDLL(lib, winmode=0)
+            else:
+                ctypes.CDLL(lib)
         except OSError:
             _safe_print(f"[transcriber] {lib} not found — will use CPU.", flush=True)
             return False

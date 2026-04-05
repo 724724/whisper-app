@@ -1,0 +1,13 @@
+
+> whisper-app@0.4.0 typecheck
+> npm run typecheck:node && npm run typecheck:web
+
+
+> whisper-app@0.4.0 typecheck:node
+> tsc --noEmit -p tsconfig.node.json --composite false
+
+
+> whisper-app@0.4.0 typecheck:web
+> tsc --noEmit -p tsconfig.web.json --composite false
+
+front/src/store/settingsStore.ts(4,7): error TS2739: Type '{ deeplApiKey: string; deeplApiType: "free"; whisperModel: "base"; outputLanguage: string; theme: "dark"; audioDeviceId: string; }' is missing the following properties from type 'AppSettings': realtimeEnhance, transcribeLanguage

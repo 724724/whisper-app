@@ -79,29 +79,35 @@ function getRequirementsHash(): string {
   }
 }
 
-/**
- * Find LD_LIBRARY_PATH additions from pip-installed nvidia site-packages.
- * These provide libcublas.so.12, libcudart.so.12, libcudnn.so.* etc.
- * Layout: {venv}/lib/python3.x/site-packages/nvidia/{package}/lib/
- */
 function getNvidiaSitePackageLibDirs(): string[] {
-  const libDir = join(getVenvDir(), 'lib')
-  if (!existsSync(libDir)) return []
-
   const dirs: string[] = []
-  try {
-    const pythonDirs = readdirSync(libDir).filter((d) => d.startsWith('python'))
-    for (const pyDir of pythonDirs) {
-      const nvidiaDir = join(libDir, pyDir, 'site-packages', 'nvidia')
-      if (!existsSync(nvidiaDir)) continue
-      const packages = readdirSync(nvidiaDir)
-      for (const pkg of packages) {
-        const libPath = join(nvidiaDir, pkg, 'lib')
-        if (existsSync(libPath)) dirs.push(libPath)
-      }
+  if (process.platform === 'win32') {
+    const sitePackages = join(getVenvDir(), 'Lib', 'site-packages')
+    const nvidiaDir = join(sitePackages, 'nvidia')
+    if (existsSync(nvidiaDir)) {
+      try {
+        const packages = readdirSync(nvidiaDir)
+        for (const pkg of packages) {
+          const binPath = join(nvidiaDir, pkg, 'bin')
+          if (existsSync(binPath)) dirs.push(binPath)
+        }
+      } catch {}
     }
-  } catch {
-    // ignore
+  } else {
+    const libDir = join(getVenvDir(), 'lib')
+    if (!existsSync(libDir)) return []
+    try {
+      const pythonDirs = readdirSync(libDir).filter((d) => d.startsWith('python'))
+      for (const pyDir of pythonDirs) {
+        const nvidiaDir = join(libDir, pyDir, 'site-packages', 'nvidia')
+        if (!existsSync(nvidiaDir)) continue
+        const packages = readdirSync(nvidiaDir)
+        for (const pkg of packages) {
+          const libPath = join(nvidiaDir, pkg, 'lib')
+          if (existsSync(libPath)) dirs.push(libPath)
+        }
+      }
+    } catch {}
   }
   return dirs
 }
@@ -177,6 +183,15 @@ async function installDependencies(python: string): Promise<void> {
 
   const requirementsPath = join(getBackendDir(), 'requirements.txt')
   let progressValue = 30
+
+  sendStatus({ phase: 'installing', message: 'pip 업그레이드 중...', progress: progressValue })
+  try {
+    await runCommandStreaming(getPythonPath(), ['-m', 'pip', 'install', '--upgrade', 'pip', 'wheel'], (line) => {
+      console.log('[pip upgrade]', line)
+    })
+  } catch (err) {
+    console.warn('[pip upgrade error]', err)
+  }
 
   await runCommandStreaming(getPipPath(), ['install', '-r', requirementsPath], (line) => {
     console.log('[pip]', line)
@@ -280,13 +295,24 @@ export async function startBackend(): Promise<void> {
   }
   await new Promise((r) => setTimeout(r, 500))
 
-  // Build LD_LIBRARY_PATH to include pip-installed nvidia CUDA libs
-  // (libcublas.so.12, libcudart.so.12, libcudnn.so.* etc.)
+  // Build Library Paths to include pip-installed nvidia CUDA libs
   const nvidiaDirs = getNvidiaSitePackageLibDirs()
-  const existingLd = process.env['LD_LIBRARY_PATH'] ?? ''
-  const newLd = [...nvidiaDirs, existingLd].filter(Boolean).join(':')
-  if (nvidiaDirs.length > 0) {
-    console.log('[backend] LD_LIBRARY_PATH nvidia dirs:', nvidiaDirs)
+  let envOverrides: Record<string, string> = {}
+
+  if (process.platform === 'win32') {
+    const existingPath = process.env['PATH'] ?? ''
+    const newPath = [...nvidiaDirs, existingPath].filter(Boolean).join(';')
+    envOverrides = { PATH: newPath }
+    if (nvidiaDirs.length > 0) {
+      console.log('[backend] PATH nvidia dirs:', nvidiaDirs)
+    }
+  } else {
+    const existingLd = process.env['LD_LIBRARY_PATH'] ?? ''
+    const newLd = [...nvidiaDirs, existingLd].filter(Boolean).join(':')
+    envOverrides = { LD_LIBRARY_PATH: newLd }
+    if (nvidiaDirs.length > 0) {
+      console.log('[backend] LD_LIBRARY_PATH nvidia dirs:', nvidiaDirs)
+    }
   }
 
   const backendDir = getBackendDir()
@@ -305,7 +331,7 @@ export async function startBackend(): Promise<void> {
     ],
     {
       cwd: backendDir,
-      env: { ...process.env, LD_LIBRARY_PATH: newLd },
+      env: { ...process.env, ...envOverrides },
       stdio: 'pipe'
     }
   )
